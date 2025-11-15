@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Tropico Ventures IoT Dashboard</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        background: #0f172a;
+        color: #e5e7eb;
+        margin: 0;
+        padding: 1.5rem;
+      }
+
+      h1 {
+        margin-bottom: 0.5rem;
+      }
+
+      h2 {
+        font-size: 0.9rem;
+        font-weight: 400;
+        line-height: 1.4;
+        color: #9ca3af;
+        max-width: 50rem;
+      }
+
+      .grid {
+        margin-top: 1.5rem;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1rem;
+      }
+
+      .card {
+        background: #111827;
+        border-radius: 0.75rem;
+        padding: 1rem 1.25rem;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.35);
+        border: 1px solid #1f2937;
+      }
+
+      .card h3 {
+        margin-top: 0;
+        margin-bottom: 0.75rem;
+        font-size: 1.05rem;
+      }
+
+      .metric {
+        font-size: 0.95rem;
+        margin: 0.4rem 0;
+      }
+
+      .metric .value {
+        font-weight: 600;
+        font-size: 1.15rem;
+        color: #fbbf24;
+      }
+
+      .metric .unit {
+        font-size: 0.8rem;
+        color: #9ca3af;
+      }
+
+      /* Timer bar */
+      .timer-bar {
+        position: relative;
+        height: 10px;
+        border-radius: 999px;
+        background: #1f2937;
+        overflow: hidden;
+        margin-top: 0.5rem;
+      }
+
+      .timer-fill {
+        position: absolute;
+        inset: 0;
+        width: 0%;
+        background: linear-gradient(90deg, #22c55e, #f97316);
+        transition: width 1s linear;
+      }
+
+      .timer-label {
+        font-size: 0.8rem;
+        color: #9ca3af;
+        margin-top: 0.4rem;
+      }
+
+      .status-ok {
+        color: #22c55e;
+      }
+
+      .status-warn {
+        color: #fbbf24;
+      }
+
+      .status-error {
+        color: #f87171;
+      }
+
+      code {
+        font-family: ui-monospace, Consolas, monospace;
+        background: #020617;
+        padding: 0.1rem 0.3rem;
+        border-radius: 0.25rem;
+      }
+
+      #debug-json {
+        margin-top: 0.5rem;
+        font-size: 0.75rem;
+        color: #9ca3af;
+        background: #020617;
+        padding: 0.5rem;
+        border-radius: 0.5rem;
+        max-height: 8rem;
+        overflow: auto;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>Tropico Ventures IoT Dashboard</h1>
+    <h2>
+      Visualización en tiempo real del sensor SCD41. Intervalo de muestreo:
+      <strong>20 segundos</strong>.
+    </h2>
+
+    <div class="grid">
+      <!-- TARJETA DEL SENSOR -->
+      <div class="card">
+        <h3>Lecturas del SCD41</h3>
+
+        <p class="metric">
+          CO₂:
+          <span id="co2" class="value">--</span>
+          <span class="unit">ppm</span>
+        </p>
+
+        <p class="metric">
+          Temperatura:
+          <span id="temp" class="value">--</span>
+          <span class="unit">°C</span>
+        </p>
+
+        <p class="metric">
+          Humedad relativa:
+          <span id="rh" class="value">--</span>
+          <span class="unit">%rH</span>
+        </p>
+
+        <p class="metric">
+          Última lectura válida:
+          <span id="last-ok" class="value">--:--:--</span>
+        </p>
+
+        <p class="metric">
+          Errores acumulados:
+          <span id="errors" class="value">0</span>
+        </p>
+
+        <p class="metric">
+          Estado del sensor:
+          <span id="sensor-status" class="status-warn">Esperando…</span>
+        </p>
+
+        <pre id="debug-json"></pre>
+      </div>
+
+      <!-- TARJETA DEL TIMER -->
+      <div class="card">
+        <h3>Timer de muestreo (20 s)</h3>
+
+        <div class="timer-bar">
+          <div id="timer-fill" class="timer-fill"></div>
+        </div>
+
+        <p id="timer-label" class="timer-label">
+          Ciclo recién iniciado…
+        </p>
+
+        <p class="timer-label">
+          Cada 20 s la Pico2W consulta el sensor y actualiza estos datos.
+        </p>
+
+        <p class="timer-label">
+          <code>/data</code> se consulta automáticamente desde este panel.
+        </p>
+      </div>
+    </div>
+
+    <script>
+      console.log("✅ Script de dashboard cargado");
+
+      const PERIOD = 20; // segundos
+      let seconds = 0;
+
+      // Elementos del DOM
+      const co2El = document.getElementById("co2");
+      const tempEl = document.getElementById("temp");
+      const rhEl = document.getElementById("rh");
+      const lastOkEl = document.getElementById("last-ok");
+      const errorsEl = document.getElementById("errors");
+      const statusEl = document.getElementById("sensor-status");
+      const timerFillEl = document.getElementById("timer-fill");
+      const timerLabelEl = document.getElementById("timer-label");
+      const debugEl = document.getElementById("debug-json");
+
+      window.addEventListener("load", () => {
+        console.log("🌐 window.load disparado");
+      });
+
+      // TIMER VISUAL
+      function tickTimer() {
+        seconds = (seconds + 1) % PERIOD;
+        const w = ((seconds / PERIOD) * 100).toFixed(1) + "%";
+        timerFillEl.style.width = w;
+        timerLabelEl.textContent =
+          "Han pasado " + seconds + " s desde la última actualización.";
+        console.log("⏱ tickTimer -> segundos:", seconds, "ancho:", w);
+      }
+
+      // CONSULTAR LOS DATOS JSON A LA PICO
+      function updateData() {
+        console.log("📥 Llamando a fetch('/data')...");
+        fetch("/data")
+          .then((r) => {
+            console.log("📡 Respuesta /data status:", r.status);
+            return r.json();
+          })
+          .then((data) => {
+            console.log("📦 JSON recibido:", data);
+            debugEl.textContent = "JSON: " + JSON.stringify(data, null, 2);
+
+            if (data && typeof data.co2 === "number") {
+              co2El.textContent = data.co2.toFixed(0);
+              tempEl.textContent = data.temp.toFixed(1);
+              rhEl.textContent = data.rh.toFixed(1);
+
+              if (typeof data.last_ok === "number") {
+                const d = new Date(data.last_ok * 1000);
+                lastOkEl.textContent = d.toLocaleTimeString();
+              } else {
+                lastOkEl.textContent = "--:--:--";
+              }
+
+              const errs =
+                typeof data.errors === "number" ? data.errors : NaN;
+              errorsEl.textContent = isNaN(errs) ? "?" : errs;
+
+              if (!isNaN(errs) && errs === 0) {
+                statusEl.textContent = "OK";
+                statusEl.className = "status-ok";
+              } else if (!isNaN(errs) && errs < 5) {
+                statusEl.textContent = "Con advertencias";
+                statusEl.className = "status-warn";
+              } else if (!isNaN(errs)) {
+                statusEl.textContent = "Muchos errores";
+                statusEl.className = "status-error";
+              } else {
+                statusEl.textContent = "Estado desconocido";
+                statusEl.className = "status-warn";
+              }
+            } else {
+              statusEl.textContent = "Sin datos válidos aún";
+              statusEl.className = "status-warn";
+            }
+
+            // reset timer visual
+            seconds = 0;
+            timerFillEl.style.width = "0%";
+          })
+          .catch((err) => {
+            statusEl.textContent = "Error de comunicación";
+            statusEl.className = "status-error";
+            debugEl.textContent = "Error fetch /data: " + err;
+            console.log("❌ Error en fetch /data:", err);
+          });
+      }
+
+      setInterval(tickTimer, 1000);
+      setInterval(updateData, PERIOD * 1000);
+
+      // Primera consulta inmediata
+      updateData();
+    </script>
+  </body>
+</html>
