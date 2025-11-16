@@ -59,3 +59,13 @@ Mientras no se reinicie el socket manualmente, puedes usar el REPL para:
 * Hacer debugging básico
 
 El servidor seguirá **activo y respondiendo** incluso con el REPL abierto.
+
+
+## Notas de Investigacion Profunda
+
+### Research Notes on IoT Communication
+
+* MQTT is the standard protocol for IoT node-to-server communication.
+HTTP can be valid under certain circumstances but MQTT should be preferred when possible.
+* If no internet available then redes LoRaWAN, Sigfox o NB-IoT, to cover big distances overa city
+

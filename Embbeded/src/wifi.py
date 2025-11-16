@@ -7,8 +7,9 @@ import time
 # === LISTA DE REDES ===
 # priority: 1 = primera opción, 2 = segunda, etc.
 NETWORKS = [
-    {"ssid": "Esteban_AA", "password": "pHil76xer*_1", "priority": 2},
-    {"ssid": "BIBLIOTECA PUBLICA PILOTO", "password": "", "priority": 1},
+    {"ssid": "Esteban_AA", "password": "pHil76xer*_1", "priority": 3},
+    {"ssid": "BIBLIOTECA PUBLICA PILOTO", "password": "", "priority": 2},
+    {"ssid": "MOn4Ri", "password": "5A17GedsfRL", "priority": 1},
 ]
 
 CONNECT_TIMEOUT = 20      # tiempo máximo por intento (segundos)
