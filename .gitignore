@@ -40,3 +40,5 @@ Thumbs.db
 # MicroPython/Embedded
 *.mpy
 .micropython/
+TrVentures_MVP_1.code-workspace
+/Embbeded/transcript.txt
