@@ -4,6 +4,7 @@ import ujson as json
 
 from wifi import connect_wifi, ensure_connected, get_wifi_info
 from sensor_scd41 import init_sensor, update_sensor, get_latest_readings, set_sample_interval
+from remote_questdb_service import update_service as update_questdb
 
 # ---- Cargar index.html solamente una vez al inicio ----
 with open("index.html", "rb") as f:
@@ -194,7 +195,10 @@ while True:
     # 2) Actualizar sensor (cada 20 s, con warm-up y tolerancia a errores)
     update_sensor()
 
-    # 3) Atender clientes HTTP
+    # 3) Enviar datos a QuestDB (cada 20 s)
+    update_questdb()
+
+    # 4) Atender clientes HTTP
     try:
         cl, addr = s.accept()
         print("Cliente:", addr)

@@ -1,12 +1,96 @@
-# QuestDB Connection Test
+# QuestDB Connection & Data Ingestion
 
-Script de prueba para conectar Python con QuestDB en VPS Hostinger.
+Scripts para conectar Python con QuestDB en VPS Hostinger e ingerir datos del sensor SCD41 desde ESP32.
 
-## Quick Start
+## Scripts Disponibles
+
+### 1. `test_connection.py` - Test de Conexión
+Prueba básica de conectividad con QuestDB.
 ```bash
 python test_connection.py
 ```
-Crea tabla, inserta datos de prueba y lee resultados.
+Crea tabla de prueba, inserta datos ficticios y lee resultados.
+
+### 2. `setup_database.py` - Configuración de Base de Datos
+Crea la tabla necesaria para almacenar datos del sensor.
+```bash
+python setup_database.py
+```
+Ejecutar **una vez** antes de iniciar la ingesta.
+
+### 3. `ingest_sensor_data.py` - Ingesta Continua
+Lee datos del sensor ESP32 y los guarda en QuestDB cada 60 segundos.
+```bash
+python ingest_sensor_data.py
+```
+
+## Setup Rápido
+
+1. **Instalar dependencias**:
+   ```bash
+   pip install requests
+   ```
+
+2. **Configurar IP del ESP32** en `config.py`:
+   ```python
+   ESP32_HOST = "192.168.1.100"  # Cambiar a tu IP real
+   ```
+
+3. **Probar conexión con ESP32**:
+   ```bash
+   python test_esp32.py
+   ```
+
+4. **Configurar base de datos**:
+   ```bash
+   python setup_database.py
+   ```
+
+5. **Iniciar ingesta continua**:
+   ```bash
+   python ingest_sensor_data.py
+   ```
+
+6. **Detener**: Presionar `Ctrl+C`
+
+## Estructura de la Tabla
+
+La tabla `sensor_scd41_data` almacena:
+- `timestamp`: Marca temporal de la medición
+- `sensor_id`: Identificador del sensor (SYMBOL para optimización)
+- `co2`: Concentración de CO2 en ppm
+- `temp`: Temperatura en °C
+- `rh`: Humedad relativa en %
+- `errors`: Contador de errores del sensor
+
+## Consultas Útiles
+
+Ver últimas 10 lecturas:
+```sql
+SELECT * FROM sensor_scd41_data
+ORDER BY timestamp DESC
+LIMIT 10;
+```
+
+Promedio de CO2 por hora:
+```sql
+SELECT
+    timestamp_floor('1h', timestamp) AS hour,
+    avg(co2) AS avg_co2,
+    avg(temp) AS avg_temp,
+    avg(rh) AS avg_rh
+FROM sensor_scd41_data
+WHERE timestamp > dateadd('d', -1, now())
+GROUP BY hour
+ORDER BY hour DESC;
+```
+
+Ver datos de hoy:
+```sql
+SELECT * FROM sensor_scd41_data
+WHERE timestamp > dateadd('d', -1, now())
+ORDER BY timestamp DESC;
+```
 
 ## Config
 - Host: `187.124.90.77:9000` (VPS Hostinger)
