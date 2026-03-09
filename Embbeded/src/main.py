@@ -2,8 +2,8 @@ import socket
 import time
 import ujson as json
 
-from wifi import connect_wifi, ensure_connected
-from sensor_scd41 import init_sensor, update_sensor, get_latest_readings
+from wifi import connect_wifi, ensure_connected, get_wifi_info
+from sensor_scd41 import init_sensor, update_sensor, get_latest_readings, set_sample_interval
 
 # ---- Cargar index.html solamente una vez al inicio ----
 with open("index.html", "r") as f:
@@ -60,6 +60,7 @@ def handle_client(cl):
         if len(parts) < 2:
             return
 
+        method = parts[0].decode()
         path = parts[1].decode()
 
         if path == "/" or path.startswith("/index"):
@@ -69,6 +70,45 @@ def handle_client(cl):
         elif path.startswith("/data"):
             cl.send(JSON_HEADER)
             cl.send(json.dumps(get_latest_readings()))
+
+        elif path.startswith("/wifi"):
+            # Devolver información WiFi actual
+            cl.send(JSON_HEADER)
+            cl.send(json.dumps(get_wifi_info(wlan)))
+
+        elif path.startswith("/config"):
+            if method == "GET":
+                # Devolver configuración actual
+                cl.send(JSON_HEADER)
+                cl.send(json.dumps(get_latest_readings()))
+            elif method == "POST":
+                # Cambiar intervalo de muestreo
+                try:
+                    # Buscar el body del request
+                    body_start = request.find(b"\r\n\r\n")
+                    if body_start != -1:
+                        body = request[body_start + 4:]
+                        data = json.loads(body)
+
+                        if "sample_interval" in data:
+                            new_interval = int(data["sample_interval"])
+                            if new_interval > 0:
+                                set_sample_interval(new_interval)
+                                cl.send(JSON_HEADER)
+                                cl.send(json.dumps({"status": "ok", "sample_interval": new_interval}))
+                            else:
+                                cl.send("HTTP/1.1 400 Bad Request\r\n\r\n")
+                                cl.send(json.dumps({"error": "interval must be positive"}))
+                        else:
+                            cl.send("HTTP/1.1 400 Bad Request\r\n\r\n")
+                            cl.send(json.dumps({"error": "missing sample_interval"}))
+                    else:
+                        cl.send("HTTP/1.1 400 Bad Request\r\n\r\n")
+                except Exception as e:
+                    cl.send("HTTP/1.1 500 Internal Server Error\r\n\r\n")
+                    cl.send(json.dumps({"error": str(e)}))
+            else:
+                cl.send("HTTP/1.1 405 Method Not Allowed\r\n\r\n")
 
         else:
             cl.send("HTTP/1.1 404 Not Found\r\n\r\n404")

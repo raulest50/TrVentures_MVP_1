@@ -3,7 +3,7 @@ from machine import Pin, I2C
 from scd4x import SCD4X
 
 # Intervalo entre lecturas "lógicas" (tu dashboard)
-SAMPLE_INTERVAL = 20       # segundos
+SAMPLE_INTERVAL = 20       # segundos (configurable en tiempo de ejecución)
 
 # Ventana de warm-up durante la cual ignoramos errores del sensor
 WARMUP_SECONDS = 30        # ajustable según veas
@@ -15,11 +15,12 @@ _last_sample = 0
 START_TIME = time.time()
 
 latest_readings = {
-    "co2": None,
-    "temp": None,
-    "rh": None,
-    "last_ok": None,
+    "co2": 0,
+    "temp": 0.0,
+    "rh": 0.0,
+    "last_ok": 0,
     "errors": 0,
+    "sample_interval": SAMPLE_INTERVAL,
 }
 
 
@@ -41,6 +42,17 @@ def init_sensor():
 
     START_TIME = time.time()
     _last_sample = 0
+
+
+def set_sample_interval(seconds):
+    """
+    Cambia el intervalo de muestreo dinámicamente.
+    Actualiza tanto la variable global como el diccionario latest_readings.
+    """
+    global SAMPLE_INTERVAL
+    SAMPLE_INTERVAL = seconds
+    latest_readings["sample_interval"] = seconds
+    print(f"⏱ Intervalo de muestreo cambiado a {seconds} segundos")
 
 
 def update_sensor():

@@ -7,9 +7,10 @@ import time
 # === LISTA DE REDES ===
 # priority: 1 = primera opción, 2 = segunda, etc.
 NETWORKS = [
-    {"ssid": "Esteban_AA", "password": "pHil76xer*_1", "priority": 3},
-    {"ssid": "BIBLIOTECA PUBLICA PILOTO", "password": "", "priority": 2},
-    {"ssid": "MOn4Ri", "password": "5A17GedsfRL", "priority": 1},
+    {"ssid": "Esteban_AA", "password": "pHil76xer*_1", "priority": 4},
+    {"ssid": "BIBLIOTECA PUBLICA PILOTO", "password": "", "priority": 3},
+    {"ssid": "MOn4Ri", "password": "5A17GedsfRL", "priority": 2},
+    {"ssid": "REA", "password": "22826385", "priority": 1},
 ]
 
 CONNECT_TIMEOUT = 20      # tiempo máximo por intento (segundos)
@@ -225,3 +226,69 @@ def ensure_connected(wlan, verbose=False):
     if verbose:
         print("\n❌ Falló la reconexión a todas las redes.")
     return wlan
+
+
+def get_wifi_info(wlan):
+    """
+    Devuelve un diccionario con información de la conexión WiFi actual.
+    Incluye: SSID, IP, calidad de señal (RSSI y porcentaje), estado.
+    """
+    if not wlan or not wlan.isconnected():
+        return {
+            "connected": False,
+            "ssid": None,
+            "ip": None,
+            "rssi": None,
+            "signal_percent": 0,
+            "signal_quality": "Sin conexión"
+        }
+
+    try:
+        # Obtener SSID de la red actual
+        ssid = "Desconocido"
+        if _current_net_index is not None and _current_net_index < len(NETWORKS):
+            ssid = NETWORKS[_current_net_index]["ssid"]
+
+        # Obtener IP local
+        ip = wlan.ifconfig()[0]
+
+        # Obtener RSSI (calidad de señal en dBm)
+        rssi = wlan.status('rssi')
+
+        # Calcular porcentaje de señal
+        # RSSI típicamente va de -100 (muy mala) a -30 (excelente)
+        # Fórmula: (rssi + 100) * 100 / 70, con límites [0, 100]
+        if rssi is not None:
+            signal_percent = max(0, min(100, (rssi + 100) * 100 // 70))
+        else:
+            signal_percent = 0
+
+        # Determinar calidad textual
+        if signal_percent >= 70:
+            signal_quality = "Excelente"
+        elif signal_percent >= 50:
+            signal_quality = "Buena"
+        elif signal_percent >= 30:
+            signal_quality = "Regular"
+        else:
+            signal_quality = "Débil"
+
+        return {
+            "connected": True,
+            "ssid": ssid,
+            "ip": ip,
+            "rssi": rssi,
+            "signal_percent": signal_percent,
+            "signal_quality": signal_quality
+        }
+
+    except Exception as e:
+        print("⚠️ Error obteniendo información WiFi:", e)
+        return {
+            "connected": False,
+            "ssid": None,
+            "ip": None,
+            "rssi": None,
+            "signal_percent": 0,
+            "signal_quality": "Error"
+        }

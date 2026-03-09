@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Tropico Ventures IoT Dashboard</title>
+    <title>Frontera DataLabs IoT Dashboard</title>
     <style>
       body {
         font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
@@ -122,10 +122,64 @@
     <h1>Tropico Ventures IoT Dashboard</h1>
     <h2>
       Visualización en tiempo real del sensor SCD41. Intervalo de muestreo:
-      <strong>20 segundos</strong>.
+      <strong id="interval-display">20 segundos</strong>.
     </h2>
 
     <div class="grid">
+      <!-- TARJETA WiFi -->
+      <div class="card">
+        <h3>📶 Conexión WiFi</h3>
+
+        <p class="metric">
+          Estado:
+          <span id="wifi-status" class="value status-warn">Consultando...</span>
+        </p>
+
+        <p class="metric">
+          Red:
+          <span id="wifi-ssid" class="value">--</span>
+        </p>
+
+        <p class="metric">
+          Dirección IP:
+          <span id="wifi-ip" class="value">--</span>
+        </p>
+
+        <p class="metric">
+          Calidad de señal:
+          <span id="wifi-quality" class="value">--</span>
+        </p>
+
+        <div class="timer-bar" style="margin-top: 0.75rem;">
+          <div id="wifi-signal-bar" class="timer-fill" style="width: 0%; background: #22c55e;"></div>
+        </div>
+
+        <p class="timer-label" style="margin-top: 0.3rem;">
+          RSSI: <span id="wifi-rssi">--</span> dBm
+        </p>
+      </div>
+
+      <!-- TARJETA DE CONFIGURACIÓN -->
+      <div class="card">
+        <h3>⚙️ Configuración</h3>
+
+        <p class="metric">
+          Intervalo de muestreo:
+        </p>
+
+        <select id="interval-select" style="width: 100%; padding: 0.5rem; font-size: 1rem; background: #1f2937; color: #e5e7eb; border: 1px solid #374151; border-radius: 0.5rem; margin-bottom: 0.5rem;">
+          <option value="20">20 segundos</option>
+          <option value="60">1 minuto</option>
+          <option value="600">10 minutos</option>
+        </select>
+
+        <button id="apply-interval" style="width: 100%; padding: 0.5rem; font-size: 1rem; background: #22c55e; color: #fff; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 600;">
+          Aplicar intervalo
+        </button>
+
+        <p id="config-status" class="timer-label" style="margin-top: 0.5rem;"></p>
+      </div>
+
       <!-- TARJETA DEL SENSOR -->
       <div class="card">
         <h3>Lecturas del SCD41</h3>
@@ -168,7 +222,7 @@
 
       <!-- TARJETA DEL TIMER -->
       <div class="card">
-        <h3>Timer de muestreo (20 s)</h3>
+        <h3 id="timer-title">Timer de muestreo (20 s)</h3>
 
         <div class="timer-bar">
           <div id="timer-fill" class="timer-fill"></div>
@@ -178,7 +232,7 @@
           Ciclo recién iniciado…
         </p>
 
-        <p class="timer-label">
+        <p id="timer-description" class="timer-label">
           Cada 20 s la Pico2W consulta el sensor y actualiza estos datos.
         </p>
 
@@ -191,8 +245,10 @@
     <script>
       console.log("✅ Script de dashboard cargado");
 
-      const PERIOD = 20; // segundos
+      let PERIOD = 20; // segundos (se actualiza dinámicamente)
       let seconds = 0;
+      let timerInterval = null;
+      let dataInterval = null;
 
       // Elementos del DOM
       const co2El = document.getElementById("co2");
@@ -204,10 +260,40 @@
       const timerFillEl = document.getElementById("timer-fill");
       const timerLabelEl = document.getElementById("timer-label");
       const debugEl = document.getElementById("debug-json");
+      const intervalSelectEl = document.getElementById("interval-select");
+      const applyIntervalBtn = document.getElementById("apply-interval");
+      const configStatusEl = document.getElementById("config-status");
+      const intervalDisplayEl = document.getElementById("interval-display");
+      const timerTitleEl = document.getElementById("timer-title");
+      const timerDescriptionEl = document.getElementById("timer-description");
+
+      // Elementos WiFi
+      const wifiStatusEl = document.getElementById("wifi-status");
+      const wifiSsidEl = document.getElementById("wifi-ssid");
+      const wifiIpEl = document.getElementById("wifi-ip");
+      const wifiQualityEl = document.getElementById("wifi-quality");
+      const wifiSignalBarEl = document.getElementById("wifi-signal-bar");
+      const wifiRssiEl = document.getElementById("wifi-rssi");
 
       window.addEventListener("load", () => {
         console.log("🌐 window.load disparado");
       });
+
+      // FUNCIÓN PARA ACTUALIZAR TEXTOS DEL INTERVALO
+      function updateIntervalTexts(interval) {
+        let timeText = "";
+        if (interval < 60) {
+          timeText = interval + " segundos";
+        } else if (interval < 3600) {
+          timeText = Math.floor(interval / 60) + " minuto" + (interval >= 120 ? "s" : "");
+        } else {
+          timeText = Math.floor(interval / 3600) + " hora" + (interval >= 7200 ? "s" : "");
+        }
+
+        intervalDisplayEl.textContent = timeText;
+        timerTitleEl.textContent = "Timer de muestreo (" + timeText + ")";
+        timerDescriptionEl.textContent = "Cada " + timeText + " la Pico2W consulta el sensor y actualiza estos datos.";
+      }
 
       // TIMER VISUAL
       function tickTimer() {
@@ -231,12 +317,21 @@
             console.log("📦 JSON recibido:", data);
             debugEl.textContent = "JSON: " + JSON.stringify(data, null, 2);
 
-            if (data && typeof data.co2 === "number") {
+            // Actualizar intervalo si cambió desde el backend
+            if (data && typeof data.sample_interval === "number" && data.sample_interval !== PERIOD) {
+              console.log("🔄 Intervalo actualizado desde backend:", data.sample_interval);
+              PERIOD = data.sample_interval;
+              intervalSelectEl.value = PERIOD;
+              updateIntervalTexts(PERIOD);
+              restartIntervals();
+            }
+
+            if (data && typeof data.co2 === "number" && data.co2 > 0) {
               co2El.textContent = data.co2.toFixed(0);
               tempEl.textContent = data.temp.toFixed(1);
               rhEl.textContent = data.rh.toFixed(1);
 
-              if (typeof data.last_ok === "number") {
+              if (typeof data.last_ok === "number" && data.last_ok > 0) {
                 const d = new Date(data.last_ok * 1000);
                 lastOkEl.textContent = d.toLocaleTimeString();
               } else {
@@ -277,11 +372,111 @@
           });
       }
 
-      setInterval(tickTimer, 1000);
-      setInterval(updateData, PERIOD * 1000);
+      // FUNCIÓN PARA REINICIAR INTERVALOS CON NUEVO PERIOD
+      function restartIntervals() {
+        if (timerInterval) clearInterval(timerInterval);
+        if (dataInterval) clearInterval(dataInterval);
+
+        seconds = 0;
+        timerFillEl.style.width = "0%";
+
+        timerInterval = setInterval(tickTimer, 1000);
+        dataInterval = setInterval(updateData, PERIOD * 1000);
+
+        console.log("🔄 Intervalos reiniciados con PERIOD =", PERIOD);
+      }
+
+      // CONSULTAR INFORMACIÓN WiFi
+      function updateWifiInfo() {
+        console.log("📶 Llamando a fetch('/wifi')...");
+        fetch("/wifi")
+          .then(r => r.json())
+          .then(data => {
+            console.log("📡 WiFi info recibida:", data);
+
+            if (data && data.connected) {
+              wifiStatusEl.textContent = "Conectado";
+              wifiStatusEl.className = "value status-ok";
+              wifiSsidEl.textContent = data.ssid || "--";
+              wifiIpEl.textContent = data.ip || "--";
+              wifiQualityEl.textContent = data.signal_quality || "--";
+              wifiRssiEl.textContent = data.rssi !== null ? data.rssi : "--";
+
+              // Actualizar barra de señal con color según calidad
+              const percent = data.signal_percent || 0;
+              wifiSignalBarEl.style.width = percent + "%";
+
+              if (percent >= 70) {
+                wifiSignalBarEl.style.background = "#22c55e"; // verde
+              } else if (percent >= 40) {
+                wifiSignalBarEl.style.background = "#fbbf24"; // amarillo
+              } else {
+                wifiSignalBarEl.style.background = "#f87171"; // rojo
+              }
+            } else {
+              wifiStatusEl.textContent = "Desconectado";
+              wifiStatusEl.className = "value status-error";
+              wifiSsidEl.textContent = "--";
+              wifiIpEl.textContent = "--";
+              wifiQualityEl.textContent = data.signal_quality || "Sin conexión";
+              wifiRssiEl.textContent = "--";
+              wifiSignalBarEl.style.width = "0%";
+            }
+          })
+          .catch(err => {
+            console.log("❌ Error en fetch /wifi:", err);
+            wifiStatusEl.textContent = "Error";
+            wifiStatusEl.className = "value status-error";
+          });
+      }
+
+      // APLICAR NUEVO INTERVALO
+      applyIntervalBtn.addEventListener("click", () => {
+        const newInterval = parseInt(intervalSelectEl.value);
+        console.log("🔧 Aplicando nuevo intervalo:", newInterval);
+
+        configStatusEl.textContent = "Enviando configuración...";
+        configStatusEl.style.color = "#fbbf24";
+
+        fetch("/config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sample_interval: newInterval })
+        })
+          .then(r => r.json())
+          .then(data => {
+            console.log("✅ Respuesta /config:", data);
+            if (data.status === "ok") {
+              PERIOD = newInterval;
+              updateIntervalTexts(PERIOD);
+              restartIntervals();
+              configStatusEl.textContent = "✅ Intervalo actualizado correctamente";
+              configStatusEl.style.color = "#22c55e";
+
+              // Llamar inmediatamente a updateData para obtener nuevas lecturas
+              setTimeout(updateData, 500);
+            } else {
+              configStatusEl.textContent = "❌ Error: " + (data.error || "desconocido");
+              configStatusEl.style.color = "#f87171";
+            }
+          })
+          .catch(err => {
+            console.log("❌ Error en fetch /config:", err);
+            configStatusEl.textContent = "❌ Error de comunicación";
+            configStatusEl.style.color = "#f87171";
+          });
+      });
+
+      // Inicializar intervalos
+      timerInterval = setInterval(tickTimer, 1000);
+      dataInterval = setInterval(updateData, PERIOD * 1000);
+
+      // Actualizar WiFi cada 10 segundos
+      setInterval(updateWifiInfo, 10000);
 
       // Primera consulta inmediata
       updateData();
+      updateWifiInfo();
     </script>
   </body>
 </html>
