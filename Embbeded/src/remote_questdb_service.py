@@ -19,7 +19,7 @@ QUESTDB_WRITE_URL = f"http://{QUESTDB_HOST}:{QUESTDB_PORT}/write"
 SENSOR_ID = "PICO_W_SCD41_01"
 
 # Intervalo de envío (segundos)
-SEND_INTERVAL = 20
+SEND_INTERVAL = 1200  # 20 minutos
 
 # Estado del servicio
 _last_send = 0
@@ -146,3 +146,13 @@ def set_send_interval(seconds):
     global SEND_INTERVAL
     SEND_INTERVAL = seconds
     print(f"QuestDB: Intervalo cambiado a {seconds}s")
+
+
+def get_send_interval():
+    """Retorna el intervalo de envío actual"""
+    return SEND_INTERVAL
+
+
+def get_sensor_id():
+    """Retorna el ID del sensor"""
+    return SENSOR_ID

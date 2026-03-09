@@ -108,12 +108,36 @@ def handle_client(cl):
                 "application/json",
             )
 
+        elif path.startswith("/wifi/scan"):
+            # Devolver lista de redes WiFi detectadas
+            from wifi import get_nearby_networks
+            scan_result = get_nearby_networks(wlan, limit=5)
+            send_response(
+                cl,
+                "HTTP/1.1 200 OK",
+                json.dumps(scan_result),
+                "application/json",
+            )
+
         elif path.startswith("/wifi"):
             # Devolver información WiFi actual
             send_response(
                 cl,
                 "HTTP/1.1 200 OK",
                 json.dumps(get_wifi_info(wlan)),
+                "application/json",
+            )
+
+        elif path.startswith("/questdb"):
+            # Devolver estadísticas de QuestDB
+            from remote_questdb_service import get_service_stats, get_send_interval, get_sensor_id
+            stats = get_service_stats()
+            stats["send_interval"] = get_send_interval()
+            stats["sensor_id"] = get_sensor_id()
+            send_response(
+                cl,
+                "HTTP/1.1 200 OK",
+                json.dumps(stats),
                 "application/json",
             )
 
@@ -135,28 +159,52 @@ def handle_client(cl):
                         body = request[body_start + 4:]
                         data = json.loads(body)
 
+                        response_data = {"status": "ok"}
+
+                        # Procesar sample_interval (intervalo del sensor)
                         if "sample_interval" in data:
                             new_interval = int(data["sample_interval"])
                             if new_interval > 0:
                                 set_sample_interval(new_interval)
-                                send_response(
-                                    cl,
-                                    "HTTP/1.1 200 OK",
-                                    json.dumps({"status": "ok", "sample_interval": new_interval}),
-                                    "application/json",
-                                )
+                                response_data["sample_interval"] = new_interval
                             else:
                                 send_response(
                                     cl,
                                     "HTTP/1.1 400 Bad Request",
-                                    json.dumps({"error": "interval must be positive"}),
+                                    json.dumps({"error": "sample_interval must be positive"}),
                                     "application/json",
                                 )
-                        else:
+                                return
+
+                        # Procesar questdb_interval (intervalo de envío a QuestDB)
+                        if "questdb_interval" in data:
+                            from remote_questdb_service import set_send_interval
+                            new_interval = int(data["questdb_interval"])
+                            if new_interval > 0:
+                                set_send_interval(new_interval)
+                                response_data["questdb_interval"] = new_interval
+                            else:
+                                send_response(
+                                    cl,
+                                    "HTTP/1.1 400 Bad Request",
+                                    json.dumps({"error": "questdb_interval must be positive"}),
+                                    "application/json",
+                                )
+                                return
+
+                        # Si no se envió ningún parámetro válido
+                        if len(response_data) == 1:  # Solo contiene "status"
                             send_response(
                                 cl,
                                 "HTTP/1.1 400 Bad Request",
-                                json.dumps({"error": "missing sample_interval"}),
+                                json.dumps({"error": "missing sample_interval or questdb_interval"}),
+                                "application/json",
+                            )
+                        else:
+                            send_response(
+                                cl,
+                                "HTTP/1.1 200 OK",
+                                json.dumps(response_data),
                                 "application/json",
                             )
                     else:

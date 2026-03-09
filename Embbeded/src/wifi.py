@@ -292,3 +292,87 @@ def get_wifi_info(wlan):
             "signal_percent": 0,
             "signal_quality": "Error"
         }
+
+
+def _authmode_to_string(authmode):
+    """Convierte el código de autenticación a texto legible."""
+    # Constantes de network.py en MicroPython
+    AUTH_MODES = {
+        0: "Abierta",
+        1: "WEP",
+        2: "WPA-PSK",
+        3: "WPA2-PSK",
+        4: "WPA/WPA2-PSK",
+    }
+    return AUTH_MODES.get(authmode, f"Desconocido ({authmode})")
+
+
+def get_nearby_networks(wlan, limit=5):
+    """
+    Escanea y devuelve las redes WiFi cercanas ordenadas por señal.
+
+    Args:
+        wlan: Objeto WLAN activo
+        limit: Número máximo de redes a retornar (default 5)
+
+    Returns:
+        dict con:
+        - "networks": lista de diccionarios con info de cada red
+        - "error": mensaje de error si falla el escaneo
+    """
+    if not wlan:
+        return {"networks": [], "error": "WLAN no inicializado"}
+
+    try:
+        # Escanear redes
+        # Formato de cada tupla: (ssid, bssid, channel, RSSI, authmode, hidden)
+        scan_results = wlan.scan()
+
+        if not scan_results:
+            return {"networks": [], "error": None}
+
+        # Procesar y ordenar por RSSI (mejor señal primero)
+        networks = []
+
+        for net in scan_results:
+            ssid = net[0].decode('utf-8', 'ignore')
+            # Ignorar redes sin SSID (ocultas sin nombre visible)
+            if not ssid or ssid.strip() == "":
+                continue
+
+            rssi = net[3]
+            authmode = net[4]
+
+            # Calcular porcentaje de señal
+            signal_percent = max(0, min(100, (rssi + 100) * 100 // 70))
+
+            # Determinar calidad textual
+            if signal_percent >= 70:
+                signal_quality = "Excelente"
+            elif signal_percent >= 50:
+                signal_quality = "Buena"
+            elif signal_percent >= 30:
+                signal_quality = "Regular"
+            else:
+                signal_quality = "Débil"
+
+            networks.append({
+                "ssid": ssid,
+                "rssi": rssi,
+                "signal_percent": signal_percent,
+                "signal_quality": signal_quality,
+                "security": _authmode_to_string(authmode)
+            })
+
+        # Ordenar por RSSI descendente (mejor señal primero)
+        networks.sort(key=lambda x: x["rssi"], reverse=True)
+
+        # Limitar a las primeras N redes
+        networks = networks[:limit]
+
+        return {"networks": networks, "error": None}
+
+    except OSError as e:
+        return {"networks": [], "error": f"Error de escaneo: {e}"}
+    except Exception as e:
+        return {"networks": [], "error": f"Error inesperado: {e}"}

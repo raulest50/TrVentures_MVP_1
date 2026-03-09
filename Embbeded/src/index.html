@@ -91,11 +91,108 @@
         max-height: 8rem;
         overflow: auto;
       }
+
+      .input-group {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 0.5rem 0;
+      }
+
+      .input-group label {
+        flex: 1;
+        font-size: 0.9rem;
+      }
+
+      .input-group input {
+        width: 4rem;
+        padding: 0.3rem 0.5rem;
+        background: #020617;
+        border: 1px solid #374151;
+        border-radius: 0.375rem;
+        color: #fbbf24;
+        font-weight: 600;
+        text-align: center;
+        font-size: 1rem;
+      }
+
+      .input-group input:focus {
+        outline: none;
+        border-color: #fbbf24;
+      }
+
+      .input-group select {
+        padding: 0.3rem 0.5rem;
+        background: #020617;
+        border: 1px solid #374151;
+        border-radius: 0.375rem;
+        color: #fbbf24;
+        font-weight: 600;
+        font-size: 0.95rem;
+        cursor: pointer;
+      }
+
+      .input-group select:focus {
+        outline: none;
+        border-color: #fbbf24;
+      }
+
+      .btn {
+        width: 100%;
+        padding: 0.5rem 1rem;
+        margin-top: 0.75rem;
+        background: #fbbf24;
+        color: #0f172a;
+        border: none;
+        border-radius: 0.5rem;
+        font-weight: 600;
+        cursor: pointer;
+        font-size: 0.95rem;
+        transition: background 0.2s;
+      }
+
+      .btn:hover {
+        background: #f59e0b;
+      }
+
+      .btn:active {
+        background: #d97706;
+      }
+
+      .btn:disabled {
+        background: #4b5563;
+        color: #9ca3af;
+        cursor: not-allowed;
+      }
+
+      .status-message {
+        margin-top: 0.75rem;
+        padding: 0.5rem;
+        border-radius: 0.375rem;
+        font-size: 0.85rem;
+        text-align: center;
+      }
+
+      .status-message.success {
+        background: rgba(34, 197, 94, 0.1);
+        color: #22c55e;
+        border: 1px solid rgba(34, 197, 94, 0.3);
+      }
+
+      .status-message.error {
+        background: rgba(248, 113, 113, 0.1);
+        color: #f87171;
+        border: 1px solid rgba(248, 113, 113, 0.3);
+      }
+
+      .status-message.hidden {
+        display: none;
+      }
     </style>
   </head>
 
   <body>
-    <h1>Tropico Ventures IoT Dashboard</h1>
+    <h1>Frontera DataLabs IoT Dashboard</h1>
     <h2>
       Vista simple del sensor y del estado de la conexión WiFi.
     </h2>
@@ -129,6 +226,28 @@
           <span id="wifi-rssi" class="value">--</span>
           <span class="unit">dBm</span>
         </p>
+
+        <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem; font-size: 0.95rem; color: #9ca3af;">
+          Redes WiFi detectadas
+        </h4>
+
+        <table class="wifi-scan-table">
+          <thead>
+            <tr>
+              <th>SSID</th>
+              <th>Señal</th>
+              <th>Calidad</th>
+              <th>Seguridad</th>
+            </tr>
+          </thead>
+          <tbody id="wifi-scan-table-body">
+            <tr>
+              <td colspan="4" style="text-align: center; color: #9ca3af;">
+                Escaneando...
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       <div class="card">
@@ -169,6 +288,76 @@
 
         <pre id="debug-json"></pre>
       </div>
+
+      <div class="card">
+        <h3>⚙️ Configuración</h3>
+
+        <div class="input-group">
+          <label for="sensor-interval-input">Intervalo de muestreo:</label>
+          <select id="sensor-interval-input">
+            <option value="20">20 segundos</option>
+            <option value="60">1 minuto</option>
+            <option value="600">10 minutos</option>
+            <option value="1200">20 minutos</option>
+            <option value="1800">30 minutos</option>
+          </select>
+        </div>
+
+        <div class="input-group">
+          <label for="questdb-interval-input">Intervalo QuestDB:</label>
+          <select id="questdb-interval-input">
+            <option value="20">20 segundos</option>
+            <option value="60">1 minuto</option>
+            <option value="600">10 minutos</option>
+            <option value="1200" selected>20 minutos</option>
+            <option value="1800">30 minutos</option>
+          </select>
+        </div>
+
+        <button id="apply-config-btn" class="btn">Aplicar</button>
+
+        <div id="config-status" class="status-message hidden"></div>
+      </div>
+
+      <div class="card">
+        <h3>📊 Sincronización QuestDB</h3>
+
+        <p class="metric">
+          Estado:
+          <span id="questdb-status" class="value status-warn">Consultando...</span>
+        </p>
+
+        <p class="metric">
+          Datos enviados:
+          <span id="questdb-sent" class="value">--</span>
+        </p>
+
+        <p class="metric">
+          Errores:
+          <span id="questdb-errors" class="value">--</span>
+        </p>
+
+        <p class="metric">
+          Tasa de éxito:
+          <span id="questdb-success-rate" class="value">--</span>
+        </p>
+
+        <p class="metric">
+          Último envío:
+          <span id="questdb-last-send" class="value">--:--:--</span>
+        </p>
+
+        <p class="metric">
+          Intervalo:
+          <span id="questdb-interval" class="value">--</span>
+          <span class="unit">s</span>
+        </p>
+
+        <p class="metric">
+          Sensor ID:
+          <span id="questdb-sensor-id" class="value">--</span>
+        </p>
+      </div>
     </div>
 
     <script>
@@ -184,6 +373,21 @@
       const wifiIpEl = document.getElementById("wifi-ip");
       const wifiQualityEl = document.getElementById("wifi-quality");
       const wifiRssiEl = document.getElementById("wifi-rssi");
+
+      // Config card elements
+      const sensorIntervalInput = document.getElementById("sensor-interval-input");
+      const questdbIntervalInput = document.getElementById("questdb-interval-input");
+      const applyConfigBtn = document.getElementById("apply-config-btn");
+      const configStatusEl = document.getElementById("config-status");
+
+      // QuestDB card elements
+      const questdbStatusEl = document.getElementById("questdb-status");
+      const questdbSentEl = document.getElementById("questdb-sent");
+      const questdbErrorsEl = document.getElementById("questdb-errors");
+      const questdbSuccessRateEl = document.getElementById("questdb-success-rate");
+      const questdbLastSendEl = document.getElementById("questdb-last-send");
+      const questdbIntervalEl = document.getElementById("questdb-interval");
+      const questdbSensorIdEl = document.getElementById("questdb-sensor-id");
 
       function formatLastOk(timestamp) {
         if (typeof timestamp !== "number" || timestamp <= 0) {
@@ -275,10 +479,152 @@
           });
       }
 
+      // ===== QuestDB Functions =====
+      function renderQuestDBStats(data) {
+        if (!data) {
+          questdbStatusEl.textContent = "Error";
+          questdbStatusEl.className = "value status-error";
+          return;
+        }
+
+        // Estado
+        if (data.enabled) {
+          questdbStatusEl.textContent = "✓ Activo";
+          questdbStatusEl.className = "value status-ok";
+        } else {
+          questdbStatusEl.textContent = "✗ Inactivo";
+          questdbStatusEl.className = "value status-error";
+        }
+
+        // Datos enviados y errores
+        var sendCount = typeof data.send_count === "number" ? data.send_count : 0;
+        var errorCount = typeof data.error_count === "number" ? data.error_count : 0;
+
+        questdbSentEl.textContent = String(sendCount);
+        questdbErrorsEl.textContent = String(errorCount);
+
+        // Tasa de éxito
+        var total = sendCount + errorCount;
+        if (total > 0) {
+          var successRate = (sendCount / total) * 100;
+          questdbSuccessRateEl.textContent = successRate.toFixed(1) + "%";
+
+          // Color según tasa
+          if (successRate >= 95) {
+            questdbSuccessRateEl.className = "value status-ok";
+          } else if (successRate >= 80) {
+            questdbSuccessRateEl.className = "value status-warn";
+          } else {
+            questdbSuccessRateEl.className = "value status-error";
+          }
+        } else {
+          questdbSuccessRateEl.textContent = "--";
+          questdbSuccessRateEl.className = "value";
+        }
+
+        // Último envío
+        questdbLastSendEl.textContent = formatLastOk(data.last_send);
+
+        // Intervalo y sensor ID
+        questdbIntervalEl.textContent = data.send_interval || "--";
+        questdbSensorIdEl.textContent = data.sensor_id || "--";
+
+        // Actualizar input de intervalo QuestDB
+        if (typeof data.send_interval === "number") {
+          questdbIntervalInput.value = data.send_interval;
+        }
+      }
+
+      function updateQuestDBStats() {
+        fetch("/questdb")
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (data) {
+            renderQuestDBStats(data);
+          })
+          .catch(function (err) {
+            questdbStatusEl.textContent = "Error de comunicación";
+            questdbStatusEl.className = "value status-error";
+          });
+      }
+
+      // ===== Config Functions =====
+      function showConfigMessage(message, isSuccess) {
+        configStatusEl.textContent = message;
+        configStatusEl.className = isSuccess
+          ? "status-message success"
+          : "status-message error";
+
+        // Ocultar después de 3 segundos
+        setTimeout(function () {
+          configStatusEl.className = "status-message hidden";
+        }, 3000);
+      }
+
+      function applyConfig() {
+        var sensorInterval = parseInt(sensorIntervalInput.value);
+        var questdbInterval = parseInt(questdbIntervalInput.value);
+
+        // Validación básica (los selects ya garantizan valores válidos)
+        if (isNaN(sensorInterval) || sensorInterval <= 0) {
+          showConfigMessage("Intervalo del sensor inválido", false);
+          return;
+        }
+
+        if (isNaN(questdbInterval) || questdbInterval <= 0) {
+          showConfigMessage("Intervalo QuestDB inválido", false);
+          return;
+        }
+
+        // Deshabilitar botón
+        applyConfigBtn.disabled = true;
+        applyConfigBtn.textContent = "Aplicando...";
+
+        // Enviar configuración
+        fetch("/config", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            sample_interval: sensorInterval,
+            questdb_interval: questdbInterval,
+          }),
+        })
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (data) {
+            if (data.status === "ok") {
+              showConfigMessage("✓ Configuración aplicada", true);
+              // Actualizar stats inmediatamente
+              updateQuestDBStats();
+            } else if (data.error) {
+              showConfigMessage("Error: " + data.error, false);
+            }
+          })
+          .catch(function (err) {
+            showConfigMessage("Error de comunicación", false);
+          })
+          .finally(function () {
+            applyConfigBtn.disabled = false;
+            applyConfigBtn.textContent = "Aplicar";
+          });
+      }
+
+      // Event listener para el botón
+      applyConfigBtn.addEventListener("click", applyConfig);
+
+      // Inicializar
       updateData();
       updateWifi();
-      setInterval(updateData, 5000);
-      setInterval(updateWifi, 15000);
+      updateQuestDBStats();
+
+      // Intervalos de actualización
+      setInterval(updateData, 5000);         // Cada 5s
+      setInterval(updateWifi, 15000);        // Cada 15s
+      setInterval(updateQuestDBStats, 10000); // Cada 10s
     </script>
   </body>
 </html>
