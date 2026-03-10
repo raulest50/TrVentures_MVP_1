@@ -188,6 +188,56 @@
       .status-message.hidden {
         display: none;
       }
+
+      .wifi-scan-table {
+        width: 100%;
+        margin-top: 0.5rem;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+      }
+
+      .wifi-scan-table thead {
+        border-bottom: 1px solid #374151;
+      }
+
+      .wifi-scan-table th {
+        padding: 0.4rem 0.3rem;
+        text-align: left;
+        font-weight: 600;
+        color: #9ca3af;
+        font-size: 0.8rem;
+      }
+
+      .wifi-scan-table td {
+        padding: 0.5rem 0.3rem;
+        border-bottom: 1px solid #1f2937;
+        color: #e5e7eb;
+      }
+
+      .wifi-scan-table tbody tr:last-child td {
+        border-bottom: none;
+      }
+
+      .wifi-scan-table .signal-cell {
+        text-align: center;
+        font-weight: 600;
+      }
+
+      .wifi-scan-table .quality-excellent {
+        color: #22c55e;
+      }
+
+      .wifi-scan-table .quality-good {
+        color: #fbbf24;
+      }
+
+      .wifi-scan-table .quality-regular {
+        color: #fb923c;
+      }
+
+      .wifi-scan-table .quality-weak {
+        color: #f87171;
+      }
     </style>
   </head>
 
@@ -388,6 +438,9 @@
       const questdbLastSendEl = document.getElementById("questdb-last-send");
       const questdbIntervalEl = document.getElementById("questdb-interval");
       const questdbSensorIdEl = document.getElementById("questdb-sensor-id");
+
+      // WiFi Scan elements
+      const wifiScanTableBody = document.getElementById("wifi-scan-table-body");
 
       function formatLastOk(timestamp) {
         if (typeof timestamp !== "number" || timestamp <= 0) {
@@ -616,15 +669,74 @@
       // Event listener para el botón
       applyConfigBtn.addEventListener("click", applyConfig);
 
+      // ===== WiFi Scan Functions =====
+      function getQualityClass(quality) {
+        if (quality === "Excelente") return "quality-excellent";
+        if (quality === "Buena") return "quality-good";
+        if (quality === "Regular") return "quality-regular";
+        if (quality === "Débil") return "quality-weak";
+        return "";
+      }
+
+      function renderWifiScan(data) {
+        if (!data) {
+          wifiScanTableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #f87171;">Error al escanear</td></tr>';
+          return;
+        }
+
+        if (data.error) {
+          wifiScanTableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #f87171;">' + data.error + '</td></tr>';
+          return;
+        }
+
+        var networks = data.networks;
+
+        if (!networks || networks.length === 0) {
+          wifiScanTableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #9ca3af;">No se detectaron redes</td></tr>';
+          return;
+        }
+
+        // Generar filas de la tabla
+        var rows = "";
+        for (var i = 0; i < networks.length; i++) {
+          var net = networks[i];
+          var qualityClass = getQualityClass(net.signal_quality);
+
+          rows += "<tr>";
+          rows += '<td style="font-weight: 500;">' + net.ssid + "</td>";
+          rows += '<td class="signal-cell">' + net.rssi + " dBm</td>";
+          rows += '<td class="' + qualityClass + '">' + net.signal_quality + " (" + net.signal_percent + "%)</td>";
+          rows += "<td>" + net.security + "</td>";
+          rows += "</tr>";
+        }
+
+        wifiScanTableBody.innerHTML = rows;
+      }
+
+      function updateWifiScan() {
+        fetch("/wifi/scan")
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (data) {
+            renderWifiScan(data);
+          })
+          .catch(function (err) {
+            wifiScanTableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #f87171;">Error de comunicación</td></tr>';
+          });
+      }
+
       // Inicializar
       updateData();
       updateWifi();
       updateQuestDBStats();
+      updateWifiScan();
 
       // Intervalos de actualización
-      setInterval(updateData, 5000);         // Cada 5s
-      setInterval(updateWifi, 15000);        // Cada 15s
+      setInterval(updateData, 5000);          // Cada 5s
+      setInterval(updateWifi, 15000);         // Cada 15s
       setInterval(updateQuestDBStats, 10000); // Cada 10s
+      setInterval(updateWifiScan, 30000);     // Cada 30s
     </script>
   </body>
 </html>
