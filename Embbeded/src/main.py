@@ -6,6 +6,7 @@ from wifi import connect_wifi, ensure_connected, get_wifi_info
 from sensor_scd41 import init_sensor, update_sensor, get_latest_readings, set_sample_interval
 from remote_questdb_service import update_service as update_questdb
 import timer_service
+import device_config
 
 # ---- Cargar index.html solamente una vez al inicio ----
 with open("index.html", "rb") as f:
@@ -30,6 +31,10 @@ if timer_service.sync_ntp(force=True):
     print(f"  Local: {timer_service.format_iso8601_local()}")
 else:
     print("⚠️ No se pudo sincronizar con NTP, continuando con hora del sistema")
+
+# ---- Cargar configuración del dispositivo ----
+print("\n📍 Cargando configuración del dispositivo...")
+device_config.print_config()
 
 # ---- Inicializar sensor SCD41 ----
 init_sensor()
@@ -143,10 +148,11 @@ def handle_client(cl):
 
         elif path.startswith("/questdb"):
             # Devolver estadísticas de QuestDB
-            from remote_questdb_service import get_service_stats, get_send_interval, get_sensor_id
+            from remote_questdb_service import get_service_stats, get_send_interval, get_board_id, get_table_name
             stats = get_service_stats()
             stats["send_interval"] = get_send_interval()
-            stats["sensor_id"] = get_sensor_id()
+            stats["board_id"] = get_board_id()
+            stats["table_name"] = get_table_name()
             send_response(
                 cl,
                 "HTTP/1.1 200 OK",
@@ -163,6 +169,85 @@ def handle_client(cl):
                 json.dumps(time_info),
                 "application/json",
             )
+
+        elif path.startswith("/device/config"):
+            # Endpoint para configuración del dispositivo
+            if method == "GET":
+                # Devolver configuración actual del dispositivo
+                config = device_config.get_config_dict()
+                send_response(
+                    cl,
+                    "HTTP/1.1 200 OK",
+                    json.dumps(config),
+                    "application/json",
+                )
+            elif method == "POST":
+                # Actualizar configuración del dispositivo
+                try:
+                    # Buscar el body del request
+                    body_start = request.find(b"\r\n\r\n")
+                    if body_start != -1:
+                        body = request[body_start + 4:]
+                        data = json.loads(body)
+
+                        response_data = {"status": "ok"}
+
+                        # Actualizar latitud y longitud
+                        if "latitude" in data and "longitude" in data:
+                            lat = float(data["latitude"])
+                            lon = float(data["longitude"])
+                            location_name = data.get("location_name", "")
+
+                            if device_config.set_location(lat, lon, location_name):
+                                response_data["latitude"] = lat
+                                response_data["longitude"] = lon
+                                if location_name:
+                                    response_data["location_name"] = location_name
+                                print(f"✓ Ubicación actualizada: ({lat}, {lon})")
+                            else:
+                                send_response(
+                                    cl,
+                                    "HTTP/1.1 500 Internal Server Error",
+                                    json.dumps({"error": "failed to save location"}),
+                                    "application/json",
+                                )
+                                return
+                        else:
+                            send_response(
+                                cl,
+                                "HTTP/1.1 400 Bad Request",
+                                json.dumps({"error": "missing latitude or longitude"}),
+                                "application/json",
+                            )
+                            return
+
+                        send_response(
+                            cl,
+                            "HTTP/1.1 200 OK",
+                            json.dumps(response_data),
+                            "application/json",
+                        )
+                    else:
+                        send_response(
+                            cl,
+                            "HTTP/1.1 400 Bad Request",
+                            json.dumps({"error": "missing request body"}),
+                            "application/json",
+                        )
+                except Exception as e:
+                    send_response(
+                        cl,
+                        "HTTP/1.1 500 Internal Server Error",
+                        json.dumps({"error": str(e)}),
+                        "application/json",
+                    )
+            else:
+                send_response(
+                    cl,
+                    "HTTP/1.1 405 Method Not Allowed",
+                    json.dumps({"error": "method not allowed"}),
+                    "application/json",
+                )
 
         elif path.startswith("/config"):
             if method == "GET":

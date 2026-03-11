@@ -340,7 +340,7 @@
       </div>
 
       <div class="card">
-        <h3>⚙️ Configuración</h3>
+        <h3>⚙️ Configuración del Sensor</h3>
 
         <div class="input-group">
           <label for="sensor-interval-input">Intervalo de muestreo:</label>
@@ -367,6 +367,39 @@
         <button id="apply-config-btn" class="btn">Aplicar</button>
 
         <div id="config-status" class="status-message hidden"></div>
+      </div>
+
+      <div class="card">
+        <h3>📍 Configuración del Dispositivo</h3>
+
+        <p class="metric">
+          Board ID:
+          <span id="device-board-id" class="value">--</span>
+        </p>
+
+        <p class="metric">
+          Tipo de Sensor:
+          <span id="device-sensor-type" class="value">--</span>
+        </p>
+
+        <div class="input-group">
+          <label for="device-latitude-input">Latitud:</label>
+          <input type="number" id="device-latitude-input" step="0.000001" placeholder="0.0" />
+        </div>
+
+        <div class="input-group">
+          <label for="device-longitude-input">Longitud:</label>
+          <input type="number" id="device-longitude-input" step="0.000001" placeholder="0.0" />
+        </div>
+
+        <div class="input-group">
+          <label for="device-location-name-input">Nombre del lugar:</label>
+          <input type="text" id="device-location-name-input" placeholder="(opcional)" style="width: auto; flex: 1;" />
+        </div>
+
+        <button id="apply-device-config-btn" class="btn">Guardar Ubicación</button>
+
+        <div id="device-config-status" class="status-message hidden"></div>
       </div>
 
       <div class="card">
@@ -404,8 +437,13 @@
         </p>
 
         <p class="metric">
-          Sensor ID:
-          <span id="questdb-sensor-id" class="value">--</span>
+          Board ID:
+          <span id="questdb-board-id" class="value">--</span>
+        </p>
+
+        <p class="metric">
+          Tabla:
+          <span id="questdb-table-name" class="value">--</span>
         </p>
       </div>
 
@@ -467,7 +505,17 @@
       const questdbSuccessRateEl = document.getElementById("questdb-success-rate");
       const questdbLastSendEl = document.getElementById("questdb-last-send");
       const questdbIntervalEl = document.getElementById("questdb-interval");
-      const questdbSensorIdEl = document.getElementById("questdb-sensor-id");
+      const questdbBoardIdEl = document.getElementById("questdb-board-id");
+      const questdbTableNameEl = document.getElementById("questdb-table-name");
+
+      // Device config elements
+      const deviceBoardIdEl = document.getElementById("device-board-id");
+      const deviceSensorTypeEl = document.getElementById("device-sensor-type");
+      const deviceLatitudeInput = document.getElementById("device-latitude-input");
+      const deviceLongitudeInput = document.getElementById("device-longitude-input");
+      const deviceLocationNameInput = document.getElementById("device-location-name-input");
+      const applyDeviceConfigBtn = document.getElementById("apply-device-config-btn");
+      const deviceConfigStatusEl = document.getElementById("device-config-status");
 
       // WiFi Scan elements
       const wifiScanTableBody = document.getElementById("wifi-scan-table-body");
@@ -615,9 +663,10 @@
         // Último envío
         questdbLastSendEl.textContent = formatLastOk(data.last_send);
 
-        // Intervalo y sensor ID
+        // Intervalo, Board ID y Tabla
         questdbIntervalEl.textContent = data.send_interval || "--";
-        questdbSensorIdEl.textContent = data.sensor_id || "--";
+        questdbBoardIdEl.textContent = data.board_id || "--";
+        questdbTableNameEl.textContent = data.table_name || "--";
 
         // Actualizar input de intervalo QuestDB
         if (typeof data.send_interval === "number") {
@@ -705,6 +754,104 @@
 
       // Event listener para el botón
       applyConfigBtn.addEventListener("click", applyConfig);
+
+      // ===== Device Config Functions =====
+      function showDeviceConfigMessage(message, isSuccess) {
+        deviceConfigStatusEl.textContent = message;
+        deviceConfigStatusEl.className = isSuccess
+          ? "status-message success"
+          : "status-message error";
+
+        // Ocultar después de 3 segundos
+        setTimeout(function () {
+          deviceConfigStatusEl.className = "status-message hidden";
+        }, 3000);
+      }
+
+      function renderDeviceConfig(data) {
+        if (!data) {
+          deviceBoardIdEl.textContent = "Error";
+          return;
+        }
+
+        deviceBoardIdEl.textContent = data.board_id || "--";
+        deviceSensorTypeEl.textContent = data.sensor_type || "--";
+        deviceLatitudeInput.value = data.latitude || 0.0;
+        deviceLongitudeInput.value = data.longitude || 0.0;
+        deviceLocationNameInput.value = data.location_name || "";
+      }
+
+      function updateDeviceConfig() {
+        fetch("/device/config")
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (data) {
+            renderDeviceConfig(data);
+          })
+          .catch(function (err) {
+            deviceBoardIdEl.textContent = "Error de comunicación";
+          });
+      }
+
+      function applyDeviceConfig() {
+        var latitude = parseFloat(deviceLatitudeInput.value);
+        var longitude = parseFloat(deviceLongitudeInput.value);
+        var locationName = deviceLocationNameInput.value;
+
+        // Validación básica
+        if (isNaN(latitude) || isNaN(longitude)) {
+          showDeviceConfigMessage("Latitud y longitud deben ser números válidos", false);
+          return;
+        }
+
+        if (latitude < -90 || latitude > 90) {
+          showDeviceConfigMessage("Latitud debe estar entre -90 y 90", false);
+          return;
+        }
+
+        if (longitude < -180 || longitude > 180) {
+          showDeviceConfigMessage("Longitud debe estar entre -180 y 180", false);
+          return;
+        }
+
+        // Deshabilitar botón
+        applyDeviceConfigBtn.disabled = true;
+        applyDeviceConfigBtn.textContent = "Guardando...";
+
+        // Enviar configuración
+        fetch("/device/config", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            latitude: latitude,
+            longitude: longitude,
+            location_name: locationName,
+          }),
+        })
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (data) {
+            if (data.status === "ok") {
+              showDeviceConfigMessage("✓ Ubicación guardada correctamente", true);
+            } else if (data.error) {
+              showDeviceConfigMessage("Error: " + data.error, false);
+            }
+          })
+          .catch(function (err) {
+            showDeviceConfigMessage("Error de comunicación", false);
+          })
+          .finally(function () {
+            applyDeviceConfigBtn.disabled = false;
+            applyDeviceConfigBtn.textContent = "Guardar Ubicación";
+          });
+      }
+
+      // Event listener para el botón de device config
+      applyDeviceConfigBtn.addEventListener("click", applyDeviceConfig);
 
       // ===== Time Sync Functions =====
       function renderTimeStatus(data) {
@@ -816,6 +963,7 @@
       updateQuestDBStats();
       updateWifiScan();
       updateTimeStatus();
+      updateDeviceConfig();
 
       // Intervalos de actualización
       setInterval(updateData, 5000);          // Cada 5s
@@ -823,6 +971,7 @@
       setInterval(updateQuestDBStats, 10000); // Cada 10s
       setInterval(updateWifiScan, 30000);     // Cada 30s
       setInterval(updateTimeStatus, 5000);    // Cada 5s
+      // No actualizar device config automáticamente (solo al cargar)
     </script>
   </body>
 </html>

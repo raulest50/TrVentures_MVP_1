@@ -10,6 +10,8 @@ package-mode = false
 python = "^3.12"
 requests = "^2.32.5"
 matplotlib = "^3.10.8"
+ujson = "^5.11.0"
+network = "^0.1"
 
 
 [build-system]
