@@ -45,7 +45,6 @@ def enviar_a_questdb():
     - co2, temp, rh: métricas del sensor
     - latitude, longitude: ubicación del dispositivo
     - errors: contador de errores
-    - ingest_time: timestamp automático de QuestDB (server-side)
 
     Retorna True si tuvo éxito, False si hubo error.
     """
@@ -73,17 +72,16 @@ def enviar_a_questdb():
     sense_time_ns = timer_service.get_timestamp_ns()
 
     # Construir línea ILP (Influx Line Protocol) con nuevo schema
-    # Formato: table,tag1=val1,tag2=val2 field1=val1,field2=val2,timestamp_field=timestampNs timestamp
+    # Formato: table,tag1=val1,tag2=val2 field1=val1,field2=val2 timestamp
     #
     # Tags (SYMBOL): board_id, sensor_type
     # Fields (métricas): co2, temp, rh, latitude, longitude, errors
-    # Timestamps: sense_time (designated), ingest_time (auto con systimestamp())
+    # Timestamp: sense_time (designated timestamp)
     ilp_line = (
         f"{TABLE_NAME},board_id={board_id},sensor_type={sensor_type} "
         f"co2={co2},temp={temp},rh={rh},"
         f"latitude={latitude},longitude={longitude},"
-        f"errors={errors}i,"
-        f"ingest_time=systimestamp() "
+        f"errors={errors}i "
         f"{sense_time_ns}"
     )
 
