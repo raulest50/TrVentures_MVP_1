@@ -36,6 +36,19 @@ else:
 print("\n📍 Cargando configuración del dispositivo...")
 device_config.print_config()
 
+# ---- Cargar y aplicar intervalos de muestreo desde configuración ----
+sample_interval = device_config.get_sample_interval()
+questdb_interval = device_config.get_questdb_interval()
+
+print(f"\n⏱ Aplicando intervalos configurados:")
+print(f"  • Muestreo del sensor: {sample_interval}s ({sample_interval // 60} min)")
+print(f"  • Envío a QuestDB: {questdb_interval}s ({questdb_interval // 60} min)")
+
+# Aplicar intervalos
+set_sample_interval(sample_interval)
+from remote_questdb_service import set_send_interval
+set_send_interval(questdb_interval)
+
 # ---- Inicializar sensor SCD41 ----
 init_sensor()
 
@@ -251,11 +264,15 @@ def handle_client(cl):
 
         elif path.startswith("/config"):
             if method == "GET":
-                # Devolver configuración actual
+                # Devolver configuración actual de intervalos
+                config_data = {
+                    "sample_interval": device_config.get_sample_interval(),
+                    "questdb_interval": device_config.get_questdb_interval()
+                }
                 send_response(
                     cl,
                     "HTTP/1.1 200 OK",
-                    json.dumps(get_latest_readings()),
+                    json.dumps(config_data),
                     "application/json",
                 )
             elif method == "POST":
@@ -271,10 +288,10 @@ def handle_client(cl):
 
                         # Procesar sample_interval (intervalo del sensor)
                         if "sample_interval" in data:
-                            new_interval = int(data["sample_interval"])
-                            if new_interval > 0:
-                                set_sample_interval(new_interval)
-                                response_data["sample_interval"] = new_interval
+                            new_sample_interval = int(data["sample_interval"])
+                            if new_sample_interval > 0:
+                                set_sample_interval(new_sample_interval)
+                                response_data["sample_interval"] = new_sample_interval
                             else:
                                 send_response(
                                     cl,
@@ -287,10 +304,10 @@ def handle_client(cl):
                         # Procesar questdb_interval (intervalo de envío a QuestDB)
                         if "questdb_interval" in data:
                             from remote_questdb_service import set_send_interval
-                            new_interval = int(data["questdb_interval"])
-                            if new_interval > 0:
-                                set_send_interval(new_interval)
-                                response_data["questdb_interval"] = new_interval
+                            new_questdb_interval = int(data["questdb_interval"])
+                            if new_questdb_interval > 0:
+                                set_send_interval(new_questdb_interval)
+                                response_data["questdb_interval"] = new_questdb_interval
                             else:
                                 send_response(
                                     cl,
@@ -309,6 +326,11 @@ def handle_client(cl):
                                 "application/json",
                             )
                         else:
+                            # Guardar intervalos en configuración persistente
+                            sample = response_data.get("sample_interval", device_config.get_sample_interval())
+                            questdb = response_data.get("questdb_interval", device_config.get_questdb_interval())
+                            device_config.set_intervals(sample, questdb)
+
                             send_response(
                                 cl,
                                 "HTTP/1.1 200 OK",

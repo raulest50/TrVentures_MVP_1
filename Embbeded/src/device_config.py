@@ -14,7 +14,9 @@ DEFAULT_CONFIG = {
     "latitude": 0.0,            # Configurar desde la UI
     "longitude": 0.0,           # Configurar desde la UI
     "sensor_type": "SCD41",     # Tipo de sensor principal
-    "location_name": ""         # Nombre descriptivo opcional
+    "location_name": "",        # Nombre descriptivo opcional
+    "sample_interval": 300,     # Intervalo de muestreo del sensor (5 minutos por defecto)
+    "questdb_interval": 1200    # Intervalo de envío a QuestDB (20 minutos por defecto)
 }
 
 _config_cache = None
@@ -134,6 +136,35 @@ def get_sensor_type():
     return config.get("sensor_type", "SCD41")
 
 
+def get_sample_interval():
+    """Retorna el intervalo de muestreo del sensor en segundos"""
+    config = load_config()
+    return int(config.get("sample_interval", 300))
+
+
+def get_questdb_interval():
+    """Retorna el intervalo de envío a QuestDB en segundos"""
+    config = load_config()
+    return int(config.get("questdb_interval", 1200))
+
+
+def set_intervals(sample_interval, questdb_interval):
+    """
+    Actualiza los intervalos de muestreo y envío.
+
+    Args:
+        sample_interval: Intervalo de muestreo del sensor en segundos
+        questdb_interval: Intervalo de envío a QuestDB en segundos
+
+    Returns:
+        True si se guardó exitosamente, False si hubo error
+    """
+    config = load_config()
+    config["sample_interval"] = int(sample_interval)
+    config["questdb_interval"] = int(questdb_interval)
+    return save_config(config)
+
+
 def get_config_dict():
     """Retorna todo el diccionario de configuración"""
     return load_config()
@@ -170,9 +201,11 @@ def print_config():
     print("\n" + "="*50)
     print("CONFIGURACIÓN DEL DISPOSITIVO")
     print("="*50)
-    print(f"Board ID:       {config.get('board_id', 'N/A')}")
-    print(f"Sensor Type:    {config.get('sensor_type', 'N/A')}")
-    print(f"Latitud:        {config.get('latitude', 0.0)}")
-    print(f"Longitud:       {config.get('longitude', 0.0)}")
-    print(f"Ubicación:      {config.get('location_name', '(sin nombre)')}")
+    print(f"Board ID:           {config.get('board_id', 'N/A')}")
+    print(f"Sensor Type:        {config.get('sensor_type', 'N/A')}")
+    print(f"Latitud:            {config.get('latitude', 0.0)}")
+    print(f"Longitud:           {config.get('longitude', 0.0)}")
+    print(f"Ubicación:          {config.get('location_name', '(sin nombre)')}")
+    print(f"Intervalo Sensing:  {config.get('sample_interval', 300)}s")
+    print(f"Intervalo QuestDB:  {config.get('questdb_interval', 1200)}s")
     print("="*50 + "\n")

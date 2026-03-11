@@ -347,6 +347,7 @@
           <select id="sensor-interval-input">
             <option value="20">20 segundos</option>
             <option value="60">1 minuto</option>
+            <option value="300">5 minutos</option>
             <option value="600">10 minutos</option>
             <option value="1200">20 minutos</option>
             <option value="1800">30 minutos</option>
@@ -358,8 +359,9 @@
           <select id="questdb-interval-input">
             <option value="20">20 segundos</option>
             <option value="60">1 minuto</option>
+            <option value="300">5 minutos</option>
             <option value="600">10 minutos</option>
-            <option value="1200" selected>20 minutos</option>
+            <option value="1200">20 minutos</option>
             <option value="1800">30 minutos</option>
           </select>
         </div>
@@ -701,6 +703,26 @@
         }, 3000);
       }
 
+      function loadConfigIntervals() {
+        // Cargar intervalos guardados desde el servidor
+        fetch("/config")
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (data) {
+            // Establecer valores en selectores si existen
+            if (data.sample_interval) {
+              sensorIntervalInput.value = data.sample_interval;
+            }
+            if (data.questdb_interval) {
+              questdbIntervalInput.value = data.questdb_interval;
+            }
+          })
+          .catch(function (err) {
+            console.log("Error cargando intervalos:", err);
+          });
+      }
+
       function applyConfig() {
         var sensorInterval = parseInt(sensorIntervalInput.value);
         var questdbInterval = parseInt(questdbIntervalInput.value);
@@ -964,6 +986,7 @@
       updateWifiScan();
       updateTimeStatus();
       updateDeviceConfig();
+      loadConfigIntervals();  // Cargar intervalos guardados
 
       // Intervalos de actualización
       setInterval(updateData, 5000);          // Cada 5s

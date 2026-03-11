@@ -3,7 +3,8 @@ from machine import Pin, I2C
 from scd4x import SCD4X
 
 # Intervalo entre lecturas "lógicas" (tu dashboard)
-SAMPLE_INTERVAL = 20       # segundos (configurable en tiempo de ejecución)
+# Se carga desde device_config.json al iniciar (ver main.py)
+SAMPLE_INTERVAL = 300       # 5 minutos por defecto (configurable en tiempo de ejecución)
 
 # Ventana de warm-up durante la cual ignoramos errores del sensor
 WARMUP_SECONDS = 30        # ajustable según veas
