@@ -408,6 +408,36 @@
           <span id="questdb-sensor-id" class="value">--</span>
         </p>
       </div>
+
+      <div class="card">
+        <h3>🕐 Sincronización de Tiempo</h3>
+
+        <p class="metric">
+          Estado NTP:
+          <span id="time-status" class="value status-warn">Consultando...</span>
+        </p>
+
+        <p class="metric">
+          Hora UTC:
+          <span id="time-utc" class="value">--</span>
+        </p>
+
+        <p class="metric">
+          Hora Local:
+          <span id="time-local" class="value">--</span>
+        </p>
+
+        <p class="metric">
+          Última sincronización:
+          <span id="time-last-sync" class="value">--:--:--</span>
+        </p>
+
+        <p class="metric">
+          Offset UTC:
+          <span id="time-offset" class="value">--</span>
+          <span class="unit">horas</span>
+        </p>
+      </div>
     </div>
 
     <script>
@@ -441,6 +471,13 @@
 
       // WiFi Scan elements
       const wifiScanTableBody = document.getElementById("wifi-scan-table-body");
+
+      // Time card elements
+      const timeStatusEl = document.getElementById("time-status");
+      const timeUtcEl = document.getElementById("time-utc");
+      const timeLocalEl = document.getElementById("time-local");
+      const timeLastSyncEl = document.getElementById("time-last-sync");
+      const timeOffsetEl = document.getElementById("time-offset");
 
       function formatLastOk(timestamp) {
         if (typeof timestamp !== "number" || timestamp <= 0) {
@@ -669,6 +706,53 @@
       // Event listener para el botón
       applyConfigBtn.addEventListener("click", applyConfig);
 
+      // ===== Time Sync Functions =====
+      function renderTimeStatus(data) {
+        if (!data) {
+          timeStatusEl.textContent = "Error";
+          timeStatusEl.className = "value status-error";
+          return;
+        }
+
+        // Estado de sincronización
+        if (data.time_valid) {
+          timeStatusEl.textContent = "✓ Sincronizado";
+          timeStatusEl.className = "value status-ok";
+        } else {
+          timeStatusEl.textContent = "✗ No sincronizado";
+          timeStatusEl.className = "value status-error";
+        }
+
+        // Horas UTC y Local
+        timeUtcEl.textContent = data.iso_utc || "--";
+        timeLocalEl.textContent = data.iso_local || "--";
+
+        // Última sincronización
+        timeLastSyncEl.textContent = formatLastOk(data.last_ntp_sync);
+
+        // Offset UTC (convertir segundos a horas)
+        if (typeof data.utc_offset_seconds === "number") {
+          var offsetHours = (data.utc_offset_seconds / 3600).toFixed(1);
+          timeOffsetEl.textContent = offsetHours;
+        } else {
+          timeOffsetEl.textContent = "--";
+        }
+      }
+
+      function updateTimeStatus() {
+        fetch("/time")
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (data) {
+            renderTimeStatus(data);
+          })
+          .catch(function (err) {
+            timeStatusEl.textContent = "Error de comunicación";
+            timeStatusEl.className = "value status-error";
+          });
+      }
+
       // ===== WiFi Scan Functions =====
       function getQualityClass(quality) {
         if (quality === "Excelente") return "quality-excellent";
@@ -731,12 +815,14 @@
       updateWifi();
       updateQuestDBStats();
       updateWifiScan();
+      updateTimeStatus();
 
       // Intervalos de actualización
       setInterval(updateData, 5000);          // Cada 5s
       setInterval(updateWifi, 15000);         // Cada 15s
       setInterval(updateQuestDBStats, 10000); // Cada 10s
       setInterval(updateWifiScan, 30000);     // Cada 30s
+      setInterval(updateTimeStatus, 5000);    // Cada 5s
     </script>
   </body>
 </html>

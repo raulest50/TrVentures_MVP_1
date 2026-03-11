@@ -1,4 +1,4 @@
-import time
+import timer_service
 from machine import Pin, I2C
 from scd4x import SCD4X
 
@@ -12,7 +12,7 @@ WARMUP_SECONDS = 30        # ajustable según veas
 _i2c = None
 _scd = None
 _last_sample = 0
-START_TIME = time.time()
+START_TIME = timer_service.get_current_epoch_utc()
 
 latest_readings = {
     "co2": 0,
@@ -31,6 +31,8 @@ def init_sensor():
     """
     global _i2c, _scd, START_TIME, _last_sample
 
+    import time  # Necesario solo para sleep
+
     _i2c = I2C(0, sda=Pin(0), scl=Pin(1), freq=100_000)
     _scd = SCD4X(_i2c)
 
@@ -40,7 +42,7 @@ def init_sensor():
     # Warm-up inicial recomendado por Sensirion
     time.sleep(10)
 
-    START_TIME = time.time()
+    START_TIME = timer_service.get_current_epoch_utc()
     _last_sample = 0
 
 
@@ -67,7 +69,7 @@ def update_sensor():
         # init_sensor() no ha sido llamado todavía
         return
 
-    now = time.time()
+    now = timer_service.get_current_epoch_utc()
     if now - _last_sample < SAMPLE_INTERVAL:
         return  # aún no toca nueva lectura
 

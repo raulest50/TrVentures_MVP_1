@@ -5,6 +5,7 @@ import ujson as json
 from wifi import connect_wifi, ensure_connected, get_wifi_info
 from sensor_scd41 import init_sensor, update_sensor, get_latest_readings, set_sample_interval
 from remote_questdb_service import update_service as update_questdb
+import timer_service
 
 # ---- Cargar index.html solamente una vez al inicio ----
 with open("index.html", "rb") as f:
@@ -17,6 +18,18 @@ if not wlan or not wlan.isconnected():
     print("\n❌ No hay WiFi, el servidor HTTP no se iniciará.")
     while True:
         time.sleep(5)
+
+# ---- Sincronizar tiempo con NTP ----
+print("\n🕐 Sincronizando hora con NTP...")
+if timer_service.sync_ntp(force=True):
+    print("✓ Hora sincronizada correctamente")
+    print(f"  UTC: {timer_service.format_iso8601_utc()}")
+    # Configurar offset para zona horaria local (ajustar según tu ubicación)
+    # Ejemplo: México (UTC-6): timer_service.set_utc_offset(hours=-6)
+    timer_service.set_utc_offset(hours=-6)  # Ajustar según tu zona horaria
+    print(f"  Local: {timer_service.format_iso8601_local()}")
+else:
+    print("⚠️ No se pudo sincronizar con NTP, continuando con hora del sistema")
 
 # ---- Inicializar sensor SCD41 ----
 init_sensor()
@@ -138,6 +151,16 @@ def handle_client(cl):
                 cl,
                 "HTTP/1.1 200 OK",
                 json.dumps(stats),
+                "application/json",
+            )
+
+        elif path.startswith("/time"):
+            # Devolver información de sincronización de tiempo
+            time_info = timer_service.get_status()
+            send_response(
+                cl,
+                "HTTP/1.1 200 OK",
+                json.dumps(time_info),
                 "application/json",
             )
 

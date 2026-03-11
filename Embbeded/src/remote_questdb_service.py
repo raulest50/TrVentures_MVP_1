@@ -5,7 +5,7 @@ Lee datos localmente y los envía a QuestDB cada 20 segundos
 """
 
 import urequests
-import time
+import timer_service
 from sensor_scd41 import get_latest_readings
 
 # ==================== CONFIGURACIÓN ====================
@@ -50,9 +50,8 @@ def enviar_a_questdb():
     rh = float(data.get('rh', 0.0))
     errors = int(data.get('errors', 0))
 
-    # Timestamp en nanosegundos
-    # MicroPython time.time() devuelve segundos desde epoch
-    timestamp_ns = int(time.time() * 1_000_000_000)
+    # Timestamp en nanosegundos UTC sincronizado con NTP
+    timestamp_ns = timer_service.get_timestamp_ns()
 
     # Construir línea ILP (Influx Line Protocol)
     # Formato: measurement,tag=value field1=value1,field2=value2 timestamp
@@ -105,7 +104,7 @@ def update_service():
     if not _enabled:
         return
 
-    now = time.time()
+    now = timer_service.get_current_epoch_utc()
 
     # Verificar si es tiempo de enviar
     if now - _last_send < SEND_INTERVAL:
