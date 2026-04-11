@@ -40,6 +40,10 @@
         border: 1px solid #1f2937;
       }
 
+      .card-full-width {
+        grid-column: 1 / -1;
+      }
+
       .card h3 {
         margin-top: 0;
         margin-bottom: 0.75rem;
@@ -237,6 +241,52 @@
 
       .wifi-scan-table .quality-weak {
         color: #f87171;
+      }
+
+      .error-log-table {
+        width: 100%;
+        margin-top: 0.5rem;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+      }
+
+      .error-log-table thead {
+        border-bottom: 1px solid #374151;
+      }
+
+      .error-log-table th {
+        padding: 0.4rem 0.3rem;
+        text-align: left;
+        font-weight: 600;
+        color: #9ca3af;
+        font-size: 0.8rem;
+      }
+
+      .error-log-table td {
+        padding: 0.5rem 0.3rem;
+        border-bottom: 1px solid #1f2937;
+        color: #e5e7eb;
+      }
+
+      .error-log-table tbody tr:last-child td {
+        border-bottom: none;
+      }
+
+      .error-log-table .error-message {
+        color: #f87171;
+        font-family: ui-monospace, Consolas, monospace;
+        font-size: 0.8rem;
+      }
+
+      .error-log-table .timestamp-cell {
+        white-space: nowrap;
+        color: #9ca3af;
+        font-size: 0.75rem;
+      }
+
+      .error-log-table .module-cell {
+        font-weight: 500;
+        color: #fbbf24;
       }
     </style>
   </head>
@@ -487,6 +537,32 @@
           <span class="unit">horas</span>
         </p>
       </div>
+
+      <div class="card">
+        <h3>📋 Error Logger</h3>
+
+        <p class="metric">
+          Total de errores:
+          <span id="logger-error-count" class="value status-warn">--</span>
+        </p>
+
+        <table class="error-log-table">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Módulo</th>
+              <th>Mensaje</th>
+            </tr>
+          </thead>
+          <tbody id="error-log-table-body">
+            <tr>
+              <td colspan="3" style="text-align: center; color: #9ca3af;">
+                Cargando...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <script>
@@ -538,6 +614,10 @@
       const timeLocalEl = document.getElementById("time-local");
       const timeLastSyncEl = document.getElementById("time-last-sync");
       const timeOffsetEl = document.getElementById("time-offset");
+
+      // Logger card elements
+      const loggerErrorCountEl = document.getElementById("logger-error-count");
+      const errorLogTableBody = document.getElementById("error-log-table-body");
 
       function formatLastOk(timestamp) {
         if (typeof timestamp !== "number" || timestamp <= 0) {
@@ -939,6 +1019,65 @@
           });
       }
 
+      // ===== Logger Functions =====
+      function formatTimestamp(timestamp) {
+        if (typeof timestamp !== "number" || timestamp <= 0) {
+          return "--:--:--";
+        }
+        var date = new Date(timestamp * 1000);
+        return date.toLocaleString();
+      }
+
+      function renderErrorLogs(data) {
+        if (!data) {
+          errorLogTableBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #f87171;">Error al cargar logs</td></tr>';
+          loggerErrorCountEl.textContent = "Error";
+          loggerErrorCountEl.className = "value status-error";
+          return;
+        }
+
+        var errors = data.errors;
+
+        if (!errors || errors.length === 0) {
+          errorLogTableBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #22c55e;">✓ Sin errores registrados</td></tr>';
+          loggerErrorCountEl.textContent = "0";
+          loggerErrorCountEl.className = "value status-ok";
+          return;
+        }
+
+        // Actualizar contador
+        loggerErrorCountEl.textContent = String(errors.length);
+        loggerErrorCountEl.className = errors.length > 0 ? "value status-error" : "value status-ok";
+
+        // Generar filas de la tabla (mostrar más recientes primero)
+        var rows = "";
+        for (var i = errors.length - 1; i >= 0; i--) {
+          var log = errors[i];
+          rows += "<tr>";
+          rows += '<td class="timestamp-cell">' + formatTimestamp(log.timestamp) + "</td>";
+          rows += '<td class="module-cell">' + log.module + "</td>";
+          rows += '<td class="error-message">' + log.message + "</td>";
+          rows += "</tr>";
+        }
+
+        errorLogTableBody.innerHTML = rows;
+      }
+
+      function updateLogger() {
+        fetch("/logger")
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (data) {
+            renderErrorLogs(data);
+          })
+          .catch(function (err) {
+            errorLogTableBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #f87171;">Error de comunicación</td></tr>';
+            loggerErrorCountEl.textContent = "Error";
+            loggerErrorCountEl.className = "value status-error";
+          });
+      }
+
       // ===== WiFi Scan Functions =====
       function getQualityClass(quality) {
         if (quality === "Excelente") return "quality-excellent";
@@ -1003,6 +1142,7 @@
       updateWifiScan();
       updateTimeStatus();
       updateDeviceConfig();
+      updateLogger();
       loadConfigIntervals();  // Cargar intervalos guardados
 
       // Intervalos de actualización
@@ -1011,6 +1151,7 @@
       setInterval(updateQuestDBStats, 10000); // Cada 10s
       setInterval(updateWifiScan, 30000);     // Cada 30s
       setInterval(updateTimeStatus, 5000);    // Cada 5s
+      setInterval(updateLogger, 10000);       // Cada 10s
       // No actualizar device config automáticamente (solo al cargar)
     </script>
   </body>

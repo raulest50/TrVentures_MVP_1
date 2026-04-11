@@ -194,6 +194,17 @@ def handle_client(cl):
                 "application/json",
             )
 
+        elif path.startswith("/logger"):
+            # Devolver logs de errores
+            import logger
+            error_logs = logger.get_logs(level_filter="ERROR")
+            send_response(
+                cl,
+                "HTTP/1.1 200 OK",
+                json.dumps({"errors": error_logs}),
+                "application/json",
+            )
+
         elif path.startswith("/device/config"):
             # Endpoint para configuración del dispositivo
             if method == "GET":

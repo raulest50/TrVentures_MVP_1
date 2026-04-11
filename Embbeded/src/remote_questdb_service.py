@@ -5,7 +5,7 @@ Corre en el Raspberry Pi Pico W con MicroPython
 Arquitectura de 3 tablas:
 - devices: Registro de dispositivos (board_id, sensor_type)
 - deployments: Historial de deployments por ubicación
-- telemetry: Datos de telemetría con referencia a deployment
+- telemetria_datos: Datos de telemetría con referencia a deployment
 """
 
 import urequests
@@ -23,7 +23,7 @@ QUESTDB_WRITE_URL = f"http://{QUESTDB_HOST}:{QUESTDB_PORT}/write"
 # Nombres de tablas
 TABLE_DEVICES = "devices"
 TABLE_DEPLOYMENTS = "deployments"
-TABLE_TELEMETRY = "telemetry"
+TABLE_TELEMETRY = "telemetria_datos"
 
 # Intervalo de envío (segundos)
 SEND_INTERVAL = 1200  # 20 minutos
@@ -180,14 +180,14 @@ def ensure_deployment():
     return create_deployment(latitude, longitude, location_name)
 
 
-# ==================== TELEMETRY ====================
+# ==================== TELEMETRIA ====================
 
 
 def enviar_telemetria():
     """
-    Envía los datos actuales del sensor a la tabla telemetry usando ILP.
+    Envía los datos actuales del sensor a la tabla telemetria_datos usando ILP.
 
-    Formato: telemetry,deployment_id=XXX co2=...,temp=...,rh=...,errors=... timestamp
+    Formato: telemetria_datos,deployment_id=XXX co2=...,temp=...,rh=...,errors=... timestamp
 
     Returns:
         True si tuvo éxito, False si hubo error
@@ -216,7 +216,7 @@ def enviar_telemetria():
     # Timestamp UTC sincronizado con NTP
     timestamp_ns = timer_service.get_timestamp_ns()
 
-    # Construir línea ILP para telemetry
+    # Construir línea ILP para telemetria_datos
     ilp_line = (
         f"{TABLE_TELEMETRY},deployment_id={deployment_id} "
         f"co2={co2},temp={temp},rh={rh},errors={errors}i "
