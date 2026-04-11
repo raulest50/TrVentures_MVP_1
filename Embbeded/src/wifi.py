@@ -10,7 +10,8 @@ NETWORKS = [
     {"ssid": "Esteban_AA", "password": "pHil76xer*_1", "priority": 4},
     {"ssid": "BIBLIOTECA PUBLICA PILOTO", "password": "", "priority": 3},
     {"ssid": "MOn4Ri", "password": "5A17GedsfRL", "priority": 2},
-    {"ssid": "REA", "password": "22826385", "priority": 1},
+    {"ssid": "REA", "password": "22826385", "priority": 5},
+    {"ssid": "iMac de Unalmed", "password": "fotonica109", "priority": 1},
 ]
 
 CONNECT_TIMEOUT = 20      # tiempo máximo por intento (segundos)

@@ -380,6 +380,11 @@
         </p>
 
         <p class="metric">
+          Deployment ID:
+          <span id="device-deployment-id" class="value">--</span>
+        </p>
+
+        <p class="metric">
           Tipo de Sensor:
           <span id="device-sensor-type" class="value">--</span>
         </p>
@@ -399,7 +404,11 @@
           <input type="text" id="device-location-name-input" placeholder="(opcional)" style="width: auto; flex: 1;" />
         </div>
 
-        <button id="apply-device-config-btn" class="btn">Guardar Ubicación</button>
+        <button id="apply-device-config-btn" class="btn">Crear Nuevo Deployment</button>
+
+        <p style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.5rem; text-align: center;">
+          Al guardar se crea un nuevo deployment con la ubicación indicada
+        </p>
 
         <div id="device-config-status" class="status-message hidden"></div>
       </div>
@@ -512,6 +521,7 @@
 
       // Device config elements
       const deviceBoardIdEl = document.getElementById("device-board-id");
+      const deviceDeploymentIdEl = document.getElementById("device-deployment-id");
       const deviceSensorTypeEl = document.getElementById("device-sensor-type");
       const deviceLatitudeInput = document.getElementById("device-latitude-input");
       const deviceLongitudeInput = document.getElementById("device-longitude-input");
@@ -797,6 +807,7 @@
         }
 
         deviceBoardIdEl.textContent = data.board_id || "--";
+        deviceDeploymentIdEl.textContent = data.deployment_id || "(sin deployment)";
         deviceSensorTypeEl.textContent = data.sensor_type || "--";
         deviceLatitudeInput.value = data.latitude || 0.0;
         deviceLongitudeInput.value = data.longitude || 0.0;
@@ -839,9 +850,9 @@
 
         // Deshabilitar botón
         applyDeviceConfigBtn.disabled = true;
-        applyDeviceConfigBtn.textContent = "Guardando...";
+        applyDeviceConfigBtn.textContent = "Creando...";
 
-        // Enviar configuración
+        // Enviar configuración - crea nuevo deployment
         fetch("/device/config", {
           method: "POST",
           headers: {
@@ -858,7 +869,13 @@
           })
           .then(function (data) {
             if (data.status === "ok") {
-              showDeviceConfigMessage("✓ Ubicación guardada correctamente", true);
+              // Actualizar el deployment_id mostrado
+              if (data.deployment_id) {
+                deviceDeploymentIdEl.textContent = data.deployment_id;
+                showDeviceConfigMessage("✓ Deployment creado: " + data.deployment_id, true);
+              } else {
+                showDeviceConfigMessage("✓ Deployment creado correctamente", true);
+              }
             } else if (data.error) {
               showDeviceConfigMessage("Error: " + data.error, false);
             }
@@ -868,7 +885,7 @@
           })
           .finally(function () {
             applyDeviceConfigBtn.disabled = false;
-            applyDeviceConfigBtn.textContent = "Guardar Ubicación";
+            applyDeviceConfigBtn.textContent = "Crear Nuevo Deployment";
           });
       }
 

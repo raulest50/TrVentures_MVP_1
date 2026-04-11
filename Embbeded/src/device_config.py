@@ -11,12 +11,15 @@ CONFIG_FILE = "device_config.json"
 # Configuración por defecto
 DEFAULT_CONFIG = {
     "board_id": None,           # Se inicializa con MAC al primer uso
+    "deployment_id": None,      # ID único del deployment actual
+    "deployment_counter": 0,    # Contador incremental para deployments
     "latitude": 0.0,            # Configurar desde la UI
     "longitude": 0.0,           # Configurar desde la UI
     "sensor_type": "SCD41",     # Tipo de sensor principal
     "location_name": "",        # Nombre descriptivo opcional
     "sample_interval": 300,     # Intervalo de muestreo del sensor (5 minutos por defecto)
-    "questdb_interval": 1200    # Intervalo de envío a QuestDB (20 minutos por defecto)
+    "questdb_interval": 1200,   # Intervalo de envío a QuestDB (20 minutos por defecto)
+    "device_registered": False  # Flag para saber si el device ya está registrado en QuestDB
 }
 
 _config_cache = None
@@ -202,10 +205,115 @@ def print_config():
     print("CONFIGURACIÓN DEL DISPOSITIVO")
     print("="*50)
     print(f"Board ID:           {config.get('board_id', 'N/A')}")
+    print(f"Deployment ID:      {config.get('deployment_id', '(sin deployment)')}")
     print(f"Sensor Type:        {config.get('sensor_type', 'N/A')}")
     print(f"Latitud:            {config.get('latitude', 0.0)}")
     print(f"Longitud:           {config.get('longitude', 0.0)}")
     print(f"Ubicación:          {config.get('location_name', '(sin nombre)')}")
     print(f"Intervalo Sensing:  {config.get('sample_interval', 300)}s")
     print(f"Intervalo QuestDB:  {config.get('questdb_interval', 1200)}s")
+    print(f"Device Registered:  {config.get('device_registered', False)}")
     print("="*50 + "\n")
+
+
+# ==================== FUNCIONES DE DEPLOYMENT ====================
+
+def get_deployment_id():
+    """Retorna el deployment_id actual o None si no existe"""
+    config = load_config()
+    return config.get("deployment_id")
+
+
+def set_deployment_id(deployment_id):
+    """
+    Actualiza el deployment_id en la configuración.
+
+    Args:
+        deployment_id: El nuevo ID de deployment
+
+    Returns:
+        True si se guardó exitosamente, False si hubo error
+    """
+    config = load_config()
+    config["deployment_id"] = deployment_id
+    return save_config(config)
+
+
+def generate_deployment_id():
+    """
+    Genera un nuevo deployment_id con formato: {board_id}_{counter:03d}
+    Incrementa el contador y lo guarda en la configuración.
+
+    Returns:
+        String con el nuevo deployment_id (ej: "AABBCCDDEEFF_001")
+    """
+    config = load_config()
+    board_id = config.get("board_id") or get_mac_address()
+    counter = config.get("deployment_counter", 0) + 1
+
+    deployment_id = f"{board_id}_{counter:03d}"
+
+    # Actualizar contador en config
+    config["deployment_counter"] = counter
+    config["deployment_id"] = deployment_id
+    save_config(config)
+
+    return deployment_id
+
+
+def is_device_registered():
+    """Retorna True si el device ya está registrado en QuestDB"""
+    config = load_config()
+    return config.get("device_registered", False)
+
+
+def set_device_registered(registered):
+    """
+    Marca el device como registrado o no registrado.
+
+    Args:
+        registered: True si el device está registrado, False si no
+
+    Returns:
+        True si se guardó exitosamente, False si hubo error
+    """
+    config = load_config()
+    config["device_registered"] = bool(registered)
+    return save_config(config)
+
+
+def create_new_deployment(latitude, longitude, location_name=""):
+    """
+    Crea un nuevo deployment: genera ID, actualiza ubicación y guarda config.
+
+    Args:
+        latitude: Latitud en grados decimales
+        longitude: Longitud en grados decimales
+        location_name: Nombre descriptivo opcional del lugar
+
+    Returns:
+        String con el nuevo deployment_id generado
+    """
+    config = load_config()
+    board_id = config.get("board_id") or get_mac_address()
+    counter = config.get("deployment_counter", 0) + 1
+
+    deployment_id = f"{board_id}_{counter:03d}"
+
+    # Actualizar toda la configuración
+    config["deployment_counter"] = counter
+    config["deployment_id"] = deployment_id
+    config["latitude"] = float(latitude)
+    config["longitude"] = float(longitude)
+    if location_name:
+        config["location_name"] = location_name
+
+    save_config(config)
+
+    return deployment_id
+
+
+def get_location_name():
+    """Retorna el nombre de la ubicación actual"""
+    config = load_config()
+    return config.get("location_name", "")

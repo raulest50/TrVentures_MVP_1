@@ -36,6 +36,17 @@ else:
 print("\n📍 Cargando configuración del dispositivo...")
 device_config.print_config()
 
+# ---- Registrar device y asegurar deployment en QuestDB ----
+print("\n📡 Inicializando registro en QuestDB...")
+from remote_questdb_service import register_device, ensure_deployment
+
+# Registrar device si no está registrado
+register_device()
+
+# Asegurar que existe un deployment válido
+deployment_id = ensure_deployment()
+print(f"✓ Deployment activo: {deployment_id}")
+
 # ---- Cargar y aplicar intervalos de muestreo desde configuración ----
 sample_interval = device_config.get_sample_interval()
 questdb_interval = device_config.get_questdb_interval()
@@ -195,7 +206,7 @@ def handle_client(cl):
                     "application/json",
                 )
             elif method == "POST":
-                # Actualizar configuración del dispositivo
+                # Crear nuevo deployment con la ubicación proporcionada
                 try:
                     # Buscar el body del request
                     body_start = request.find(b"\r\n\r\n")
@@ -203,29 +214,8 @@ def handle_client(cl):
                         body = request[body_start + 4:]
                         data = json.loads(body)
 
-                        response_data = {"status": "ok"}
-
-                        # Actualizar latitud y longitud
-                        if "latitude" in data and "longitude" in data:
-                            lat = float(data["latitude"])
-                            lon = float(data["longitude"])
-                            location_name = data.get("location_name", "")
-
-                            if device_config.set_location(lat, lon, location_name):
-                                response_data["latitude"] = lat
-                                response_data["longitude"] = lon
-                                if location_name:
-                                    response_data["location_name"] = location_name
-                                print(f"✓ Ubicación actualizada: ({lat}, {lon})")
-                            else:
-                                send_response(
-                                    cl,
-                                    "HTTP/1.1 500 Internal Server Error",
-                                    json.dumps({"error": "failed to save location"}),
-                                    "application/json",
-                                )
-                                return
-                        else:
+                        # Validar que se proporcionaron latitud y longitud
+                        if "latitude" not in data or "longitude" not in data:
                             send_response(
                                 cl,
                                 "HTTP/1.1 400 Bad Request",
@@ -234,12 +224,38 @@ def handle_client(cl):
                             )
                             return
 
-                        send_response(
-                            cl,
-                            "HTTP/1.1 200 OK",
-                            json.dumps(response_data),
-                            "application/json",
-                        )
+                        lat = float(data["latitude"])
+                        lon = float(data["longitude"])
+                        location_name = data.get("location_name", "")
+
+                        # Crear nuevo deployment en QuestDB
+                        from remote_questdb_service import create_deployment
+                        new_deployment_id = create_deployment(lat, lon, location_name)
+
+                        if new_deployment_id:
+                            response_data = {
+                                "status": "ok",
+                                "deployment_id": new_deployment_id,
+                                "latitude": lat,
+                                "longitude": lon
+                            }
+                            if location_name:
+                                response_data["location_name"] = location_name
+                            print(f"✓ Nuevo deployment creado: {new_deployment_id}")
+
+                            send_response(
+                                cl,
+                                "HTTP/1.1 200 OK",
+                                json.dumps(response_data),
+                                "application/json",
+                            )
+                        else:
+                            send_response(
+                                cl,
+                                "HTTP/1.1 500 Internal Server Error",
+                                json.dumps({"error": "failed to create deployment"}),
+                                "application/json",
+                            )
                     else:
                         send_response(
                             cl,

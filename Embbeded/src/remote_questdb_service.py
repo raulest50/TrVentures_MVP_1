@@ -1,10 +1,11 @@
 """
 Servicio para enviar datos del sensor SCD41 a QuestDB
 Corre en el Raspberry Pi Pico W con MicroPython
-Lee datos localmente y los envía a QuestDB cada 20 minutos
 
-Nueva tabla: frontera_dtlabs_v2
-Schema mejorado con board_id, geolocalización y timestamps duales
+Arquitectura de 3 tablas:
+- devices: Registro de dispositivos (board_id, sensor_type)
+- deployments: Historial de deployments por ubicación
+- telemetry: Datos de telemetría con referencia a deployment
 """
 
 import urequests
@@ -19,8 +20,10 @@ QUESTDB_HOST = "187.124.90.77"
 QUESTDB_PORT = 9000
 QUESTDB_WRITE_URL = f"http://{QUESTDB_HOST}:{QUESTDB_PORT}/write"
 
-# Nueva tabla con schema mejorado
-TABLE_NAME = "frontera_dtlabs_v2"
+# Nombres de tablas
+TABLE_DEVICES = "devices"
+TABLE_DEPLOYMENTS = "deployments"
+TABLE_TELEMETRY = "telemetry"
 
 # Intervalo de envío (segundos)
 SEND_INTERVAL = 1200  # 20 minutos
@@ -31,24 +34,171 @@ _send_count = 0
 _error_count = 0
 _enabled = True
 
-# ==================== FUNCIONES ====================
+# ==================== FUNCIÓN BASE ILP ====================
 
 
-def enviar_a_questdb():
+def _send_ilp(ilp_line):
     """
-    Envía los datos actuales del sensor a QuestDB usando Influx Line Protocol.
+    Envía una línea ILP (Influx Line Protocol) a QuestDB.
 
-    Nuevo schema: frontera_dtlabs_v2
-    - sense_time: timestamp del sensor (designated timestamp)
-    - board_id: MAC address único del dispositivo
-    - sensor_type: tipo de sensor (SCD41)
-    - co2, temp, rh: métricas del sensor
-    - latitude, longitude: ubicación del dispositivo
-    - errors: contador de errores
+    Args:
+        ilp_line: String con la línea ILP a enviar
 
-    Retorna True si tuvo éxito, False si hubo error.
+    Returns:
+        True si tuvo éxito, False si hubo error
     """
-    global _send_count, _error_count
+    global _error_count
+
+    try:
+        response = urequests.post(
+            QUESTDB_WRITE_URL,
+            data=ilp_line,
+            headers={"Content-Type": "text/plain"}
+        )
+
+        # QuestDB responde 200 o 204 en éxito
+        if response.status_code in [200, 204]:
+            response.close()
+            return True
+        else:
+            _error_count += 1
+            print(f"✗ QuestDB: Error {response.status_code}")
+            print(f"  Respuesta: {response.text[:100]}")
+            response.close()
+            return False
+
+    except OSError as e:
+        _error_count += 1
+        print(f"✗ QuestDB: Error de red ({e})")
+        return False
+    except Exception as e:
+        _error_count += 1
+        print(f"✗ QuestDB: Error inesperado ({e})")
+        return False
+
+
+# ==================== DEVICES ====================
+
+
+def register_device():
+    """
+    Registra el device en la tabla devices si no está registrado.
+    Solo se ejecuta una vez por dispositivo.
+
+    Returns:
+        True si el registro fue exitoso o ya estaba registrado, False si hubo error
+    """
+    # Verificar si ya está registrado
+    if device_config.is_device_registered():
+        print("✓ Device ya registrado en QuestDB")
+        return True
+
+    board_id = device_config.get_board_id()
+    sensor_type = device_config.get_sensor_type()
+    timestamp_ns = timer_service.get_timestamp_ns()
+
+    # Línea ILP para devices
+    # devices,board_id=XXX,sensor_type=SCD41 registered=1i timestamp
+    ilp_line = (
+        f"{TABLE_DEVICES},board_id={board_id},sensor_type={sensor_type} "
+        f"registered=1i "
+        f"{timestamp_ns}"
+    )
+
+    print(f"📝 Registrando device: {board_id}")
+
+    if _send_ilp(ilp_line):
+        device_config.set_device_registered(True)
+        print(f"✓ Device {board_id} registrado exitosamente")
+        return True
+    else:
+        print(f"✗ Error registrando device {board_id}")
+        return False
+
+
+# ==================== DEPLOYMENTS ====================
+
+
+def create_deployment(latitude, longitude, location_name=""):
+    """
+    Crea un nuevo deployment en QuestDB y actualiza la configuración local.
+
+    Args:
+        latitude: Latitud en grados decimales
+        longitude: Longitud en grados decimales
+        location_name: Nombre descriptivo opcional del lugar
+
+    Returns:
+        String con el deployment_id creado, o None si hubo error
+    """
+    # Generar nuevo deployment_id y guardar en config
+    deployment_id = device_config.create_new_deployment(latitude, longitude, location_name)
+    board_id = device_config.get_board_id()
+    timestamp_ns = timer_service.get_timestamp_ns()
+
+    # Escapar location_name para ILP (reemplazar espacios con \)
+    safe_location = location_name.replace(" ", "\\ ").replace(",", "\\,") if location_name else "unknown"
+
+    # Línea ILP para deployments
+    # deployments,deployment_id=XXX,board_id=YYY latitude=0.0,longitude=0.0,location_name="..." timestamp
+    ilp_line = (
+        f"{TABLE_DEPLOYMENTS},deployment_id={deployment_id},board_id={board_id} "
+        f"latitude={latitude},longitude={longitude},location_name=\"{location_name or 'unknown'}\" "
+        f"{timestamp_ns}"
+    )
+
+    print(f"📍 Creando deployment: {deployment_id}")
+    print(f"   Ubicación: ({latitude}, {longitude}) - {location_name or '(sin nombre)'}")
+
+    if _send_ilp(ilp_line):
+        print(f"✓ Deployment {deployment_id} creado exitosamente")
+        return deployment_id
+    else:
+        print(f"✗ Error creando deployment {deployment_id}")
+        return None
+
+
+def ensure_deployment():
+    """
+    Asegura que exista un deployment válido.
+    Si no existe, crea uno con la ubicación actual de la configuración.
+
+    Returns:
+        String con el deployment_id actual o recién creado
+    """
+    deployment_id = device_config.get_deployment_id()
+
+    if deployment_id:
+        print(f"✓ Deployment activo: {deployment_id}")
+        return deployment_id
+
+    # No hay deployment, crear uno con la ubicación actual
+    latitude, longitude = device_config.get_location()
+    location_name = device_config.get_location_name()
+
+    print("⚠️ No hay deployment activo, creando uno inicial...")
+    return create_deployment(latitude, longitude, location_name)
+
+
+# ==================== TELEMETRY ====================
+
+
+def enviar_telemetria():
+    """
+    Envía los datos actuales del sensor a la tabla telemetry usando ILP.
+
+    Formato: telemetry,deployment_id=XXX co2=...,temp=...,rh=...,errors=... timestamp
+
+    Returns:
+        True si tuvo éxito, False si hubo error
+    """
+    global _send_count
+
+    # Verificar que existe deployment_id
+    deployment_id = device_config.get_deployment_id()
+    if not deployment_id:
+        print("⚠️ QuestDB: No hay deployment_id, no se puede enviar telemetría")
+        return False
 
     # Leer datos del sensor
     data = get_latest_readings()
@@ -63,61 +213,35 @@ def enviar_a_questdb():
     rh = float(data.get('rh', 0.0))
     errors = int(data.get('errors', 0))
 
-    # Obtener configuración del dispositivo
-    board_id = device_config.get_board_id()
-    sensor_type = device_config.get_sensor_type()
-    latitude, longitude = device_config.get_location()
+    # Timestamp UTC sincronizado con NTP
+    timestamp_ns = timer_service.get_timestamp_ns()
 
-    # Timestamp del sensor (sense_time) - UTC sincronizado con NTP
-    sense_time_ns = timer_service.get_timestamp_ns()
-
-    # Construir línea ILP (Influx Line Protocol) con nuevo schema
-    # Formato: table,tag1=val1,tag2=val2 field1=val1,field2=val2 timestamp
-    #
-    # Tags (SYMBOL): board_id, sensor_type
-    # Fields (métricas): co2, temp, rh, latitude, longitude, errors
-    # Timestamp: sense_time (designated timestamp)
+    # Construir línea ILP para telemetry
     ilp_line = (
-        f"{TABLE_NAME},board_id={board_id},sensor_type={sensor_type} "
-        f"co2={co2},temp={temp},rh={rh},"
-        f"latitude={latitude},longitude={longitude},"
-        f"errors={errors}i "
-        f"{sense_time_ns}"
+        f"{TABLE_TELEMETRY},deployment_id={deployment_id} "
+        f"co2={co2},temp={temp},rh={rh},errors={errors}i "
+        f"{timestamp_ns}"
     )
 
-    try:
-        # Enviar a QuestDB
-        response = urequests.post(
-            QUESTDB_WRITE_URL,
-            data=ilp_line,
-            headers={"Content-Type": "text/plain"}
-        )
-
-        # QuestDB responde 200 o 204 en éxito
-        if response.status_code in [200, 204]:
-            _send_count += 1
-            print(f"✓ QuestDB: Enviado #{_send_count}")
-            print(f"  Board: {board_id} | CO2={co2:.0f}ppm, T={temp:.1f}°C, RH={rh:.1f}%")
-            print(f"  Ubicación: ({latitude:.6f}, {longitude:.6f})")
-            response.close()
-            return True
-        else:
-            _error_count += 1
-            print(f"✗ QuestDB: Error {response.status_code}")
-            print(f"  Respuesta: {response.text[:100]}")
-            response.close()
-            return False
-
-    except OSError as e:
-        # Errores de red (timeout, conexión, DNS, etc.)
-        _error_count += 1
-        print(f"✗ QuestDB: Error de red ({e})")
+    if _send_ilp(ilp_line):
+        _send_count += 1
+        print(f"✓ QuestDB: Telemetría enviada #{_send_count}")
+        print(f"  Deployment: {deployment_id} | CO2={co2:.0f}ppm, T={temp:.1f}°C, RH={rh:.1f}%")
+        return True
+    else:
+        print(f"✗ QuestDB: Error enviando telemetría")
         return False
-    except Exception as e:
-        # Cualquier otro error
-        _error_count += 1
-        print(f"✗ QuestDB: Error inesperado ({e})")
-        return False
+
+
+# ==================== COMPATIBILIDAD ====================
+
+
+def enviar_a_questdb():
+    """
+    Función de compatibilidad - llama a enviar_telemetria().
+    Mantener para código existente.
+    """
+    return enviar_telemetria()
 
 
 def update_service():
@@ -138,8 +262,8 @@ def update_service():
 
     _last_send = now
 
-    # Enviar datos
-    enviar_a_questdb()
+    # Enviar telemetría
+    enviar_telemetria()
 
 
 def enable_service():
@@ -184,5 +308,5 @@ def get_board_id():
 
 
 def get_table_name():
-    """Retorna el nombre de la tabla en QuestDB"""
-    return TABLE_NAME
+    """Retorna el nombre de la tabla principal de telemetría"""
+    return TABLE_TELEMETRY
