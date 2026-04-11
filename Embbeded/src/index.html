@@ -248,6 +248,7 @@
         margin-top: 0.5rem;
         border-collapse: collapse;
         font-size: 0.85rem;
+        table-layout: fixed;
       }
 
       .error-log-table thead {
@@ -260,6 +261,18 @@
         font-weight: 600;
         color: #9ca3af;
         font-size: 0.8rem;
+      }
+
+      .error-log-table th:nth-child(1) {
+        width: 150px;
+      }
+
+      .error-log-table th:nth-child(2) {
+        width: 130px;
+      }
+
+      .error-log-table th:nth-child(3) {
+        width: auto;
       }
 
       .error-log-table td {
@@ -276,6 +289,8 @@
         color: #f87171;
         font-family: ui-monospace, Consolas, monospace;
         font-size: 0.8rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
       }
 
       .error-log-table .timestamp-cell {
@@ -287,6 +302,9 @@
       .error-log-table .module-cell {
         font-weight: 500;
         color: #fbbf24;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
     </style>
   </head>
@@ -538,7 +556,7 @@
         </p>
       </div>
 
-      <div class="card">
+      <div class="card card-full-width">
         <h3>📋 Error Logger</h3>
 
         <p class="metric">
