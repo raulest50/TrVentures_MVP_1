@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Frontera DataLabs WiFi Setup</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #0f172a;
+        color: #e5e7eb;
+        margin: 0;
+        padding: 1.5rem;
+      }
+
+      h1 {
+        margin-bottom: 0.3rem;
+      }
+
+      h2 {
+        margin-top: 0;
+        color: #94a3b8;
+        font-size: 0.95rem;
+        font-weight: 400;
+        max-width: 64rem;
+      }
+
+      .views {
+        margin-top: 1.5rem;
+      }
+
+      .view {
+        display: none;
+      }
+
+      .view.active {
+        display: block;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 1rem;
+      }
+
+      .card {
+        background: #111827;
+        border: 1px solid #1f2937;
+        border-radius: 0.9rem;
+        padding: 1rem 1.15rem;
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+      }
+
+      .card-full {
+        grid-column: 1 / -1;
+      }
+
+      .card h3 {
+        margin-top: 0;
+        margin-bottom: 0.8rem;
+      }
+
+      .metric {
+        margin: 0.45rem 0;
+        font-size: 0.94rem;
+      }
+
+      .value {
+        font-weight: 700;
+        color: #fbbf24;
+      }
+
+      .status-ok {
+        color: #22c55e;
+      }
+
+      .status-warn {
+        color: #fbbf24;
+      }
+
+      .status-error {
+        color: #f87171;
+      }
+
+      .mono {
+        font-family: ui-monospace, Consolas, monospace;
+      }
+
+      .small {
+        color: #94a3b8;
+        font-size: 0.82rem;
+      }
+
+      .input-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+        align-items: center;
+        margin: 0.75rem 0;
+      }
+
+      .input-group label {
+        min-width: 145px;
+        font-size: 0.9rem;
+      }
+
+      .input-group input,
+      .input-group select {
+        flex: 1;
+        min-width: 0;
+        padding: 0.5rem 0.6rem;
+        border-radius: 0.5rem;
+        border: 1px solid #334155;
+        background: #020617;
+        color: #e5e7eb;
+      }
+
+      .input-group input:focus,
+      .input-group select:focus {
+        outline: none;
+        border-color: #fbbf24;
+      }
+
+      .btn-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+        margin-top: 1rem;
+      }
+
+      .btn {
+        border: none;
+        border-radius: 0.55rem;
+        padding: 0.65rem 0.95rem;
+        font-weight: 700;
+        cursor: pointer;
+        background: #fbbf24;
+        color: #0f172a;
+      }
+
+      .btn-secondary {
+        background: #1d4ed8;
+        color: #eff6ff;
+      }
+
+      .btn-muted {
+        background: #334155;
+        color: #e2e8f0;
+      }
+
+      .btn-danger {
+        background: #b91c1c;
+        color: #fee2e2;
+      }
+
+      .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .status-message {
+        margin-top: 0.9rem;
+        padding: 0.65rem 0.8rem;
+        border-radius: 0.5rem;
+        border: 1px solid transparent;
+        font-size: 0.88rem;
+      }
+
+      .status-message.hidden {
+        display: none;
+      }
+
+      .status-message.success {
+        background: rgba(34, 197, 94, 0.12);
+        color: #22c55e;
+        border-color: rgba(34, 197, 94, 0.3);
+      }
+
+      .status-message.error {
+        background: rgba(248, 113, 113, 0.12);
+        color: #f87171;
+        border-color: rgba(248, 113, 113, 0.3);
+      }
+
+      .stepper {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+      }
+
+      .step {
+        flex: 1;
+        text-align: center;
+        position: relative;
+      }
+
+      .step::after {
+        content: "";
+        position: absolute;
+        top: 1rem;
+        left: calc(50% + 1.3rem);
+        right: calc(-50% + 1.3rem);
+        height: 2px;
+        background: #334155;
+      }
+
+      .step:last-child::after {
+        display: none;
+      }
+
+      .step-circle {
+        width: 2rem;
+        height: 2rem;
+        margin: 0 auto 0.55rem auto;
+        border-radius: 999px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        border: 2px solid #475569;
+        color: #cbd5e1;
+        background: #0f172a;
+      }
+
+      .step.active .step-circle {
+        border-color: #fbbf24;
+        color: #0f172a;
+        background: #fbbf24;
+      }
+
+      .step.complete .step-circle {
+        border-color: #22c55e;
+        background: #22c55e;
+        color: #052e16;
+      }
+
+      .step-title {
+        font-size: 0.82rem;
+        color: #cbd5e1;
+      }
+
+      .step-panel {
+        display: none;
+      }
+
+      .step-panel.active {
+        display: block;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 0.75rem;
+        font-size: 0.84rem;
+      }
+
+      th,
+      td {
+        padding: 0.45rem 0.35rem;
+        text-align: left;
+        vertical-align: top;
+        border-bottom: 1px solid #1f2937;
+      }
+
+      th {
+        color: #94a3b8;
+        font-size: 0.8rem;
+      }
+
+      tbody tr:last-child td {
+        border-bottom: none;
+      }
+
+      .network-pill {
+        display: inline-block;
+        padding: 0.18rem 0.45rem;
+        border-radius: 999px;
+        background: rgba(29, 78, 216, 0.18);
+        color: #93c5fd;
+        font-size: 0.76rem;
+      }
+
+      .link-row {
+        margin-top: 1rem;
+      }
+
+      .inline-actions {
+        display: flex;
+        gap: 0.45rem;
+        flex-wrap: wrap;
+      }
+
+      @media (max-width: 900px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Frontera DataLabs WiFi Setup</h1>
+    <h2>
+      Aqui puedes administrar redes guardadas, crear una nueva conexion con asistente guiado y
+      definir el nombre amigable del nodo para el AP de setup y el hostname mDNS.
+    </h2>
+
+    <div class="views">
+      <div id="view-home" class="view active">
+        <div class="grid">
+          <div class="card">
+            <h3>Redes WiFi guardadas</h3>
+            <p class="small">Edita password, prioridad o estado. Tambien puedes eliminar redes que ya no uses.</p>
+            <table>
+              <thead>
+                <tr>
+                  <th>SSID</th>
+                  <th>Prioridad</th>
+                  <th>Activa</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="saved-networks-body">
+                <tr>
+                  <td colspan="4" style="text-align:center; color:#94a3b8;">Sin redes guardadas</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="card">
+            <h3>Crear nueva red</h3>
+            <p class="small">
+              Abre el asistente guiado para capturar SSID y password, probar la conexion, guardar la
+              prioridad y reiniciar la board.
+            </p>
+            <div class="btn-row">
+              <button id="open-stepper-btn" class="btn">Abrir asistente</button>
+              <button id="refresh-scan-btn-home" class="btn btn-muted">Actualizar redes visibles</button>
+            </div>
+
+            <h4 class="small" style="margin-top: 1rem;">Redes visibles ahora</h4>
+            <table>
+              <thead>
+                <tr>
+                  <th>SSID</th>
+                  <th>Senal</th>
+                  <th>Seguridad</th>
+                </tr>
+              </thead>
+              <tbody id="visible-networks-body">
+                <tr>
+                  <td colspan="3" style="text-align:center; color:#94a3b8;">Escaneando...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="card">
+            <h3>Nombre del nodo y mDNS</h3>
+            <p class="metric">Board ID tecnico: <span id="identity-board-id" class="value mono">--</span></p>
+            <p class="metric">Board name: <span id="identity-board-name" class="value">--</span></p>
+            <p class="metric">Hostname mDNS: <span id="identity-mdns-hostname" class="value mono">--</span></p>
+            <p class="metric">mDNS habilitado: <span id="identity-mdns-enabled" class="value">--</span></p>
+            <p class="metric">Ultima IP local: <span id="identity-last-ip" class="value mono">--</span></p>
+            <p class="metric">Ultimo SSID STA: <span id="identity-last-ssid" class="value">--</span></p>
+            <p class="metric">SSID AP setup: <span id="identity-setup-ssid" class="value">--</span></p>
+
+            <div class="btn-row">
+              <button id="open-identity-btn" class="btn btn-secondary">Editar identidad</button>
+            </div>
+          </div>
+
+          <div class="card card-full">
+            <h3>Estado actual</h3>
+            <p class="metric">Modo WiFi: <span id="home-wifi-mode" class="value">--</span></p>
+            <p class="metric">SSID activo: <span id="home-wifi-ssid" class="value">--</span></p>
+            <p class="metric">IP activa: <span id="home-wifi-ip" class="value mono">--</span></p>
+            <p class="metric">Ultima red conectada: <span id="home-last-connected" class="value">--</span></p>
+            <p class="metric">Modo de interfaz: <span id="home-operation-mode" class="value">setup</span></p>
+            <div class="btn-row">
+              <button id="reset-wifi-btn" class="btn btn-danger">Reset WiFi</button>
+              <button id="reload-home-btn" class="btn btn-muted">Refrescar estado</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="view-stepper" class="view">
+        <div class="card">
+          <div class="stepper">
+            <div id="step-indicator-1" class="step active">
+              <div class="step-circle">1</div>
+              <div class="step-title">SSID y password</div>
+            </div>
+            <div id="step-indicator-2" class="step">
+              <div class="step-circle">2</div>
+              <div class="step-title">Test conexion</div>
+            </div>
+            <div id="step-indicator-3" class="step">
+              <div class="step-circle">3</div>
+              <div class="step-title">Guardar y prioridad</div>
+            </div>
+            <div id="step-indicator-4" class="step">
+              <div class="step-circle">4</div>
+              <div class="step-title">Reiniciar board</div>
+            </div>
+          </div>
+
+          <div id="step-panel-1" class="step-panel active">
+            <h3>Paso 1. Captura de credenciales</h3>
+            <div class="input-group">
+              <label for="ssid-input">SSID</label>
+              <input id="ssid-input" list="wifi-scan-options" type="text" placeholder="Nombre de la red" />
+              <datalist id="wifi-scan-options"></datalist>
+            </div>
+            <div class="input-group">
+              <label for="password-input">Password</label>
+              <input id="password-input" type="password" placeholder="Credencial temporal para la prueba" />
+            </div>
+            <div class="btn-row">
+              <button id="step1-next-btn" class="btn">Continuar a prueba</button>
+              <button id="refresh-scan-btn-stepper" class="btn btn-muted">Actualizar escaneo</button>
+              <button id="stepper-home-btn-1" class="btn btn-muted">Volver a inicio</button>
+            </div>
+          </div>
+
+          <div id="step-panel-2" class="step-panel">
+            <h3>Paso 2. Probar conexion</h3>
+            <p class="small">
+              Esta prueba valida si la red acepta conexion desde la board. No guarda todavia la red.
+            </p>
+            <p class="metric">SSID candidato: <span id="test-ssid" class="value">--</span></p>
+            <div class="btn-row">
+              <button id="run-test-btn" class="btn">Ejecutar prueba</button>
+              <button id="back-to-step1-btn" class="btn btn-muted">Volver</button>
+              <button id="stepper-home-btn-2" class="btn btn-muted">Inicio</button>
+            </div>
+          </div>
+
+          <div id="step-panel-3" class="step-panel">
+            <h3>Paso 3. Guardar y asignar prioridad</h3>
+            <div class="input-group">
+              <label for="priority-input">Prioridad</label>
+              <input id="priority-input" type="number" min="1" max="9999" value="10" />
+            </div>
+            <div class="input-group">
+              <label for="enabled-input">Habilitada</label>
+              <select id="enabled-input">
+                <option value="true">Si</option>
+                <option value="false">No</option>
+              </select>
+            </div>
+            <div class="btn-row">
+              <button id="save-network-btn" class="btn">Guardar red</button>
+              <button id="back-to-step2-btn" class="btn btn-muted">Volver</button>
+              <button id="stepper-home-btn-3" class="btn btn-muted">Inicio</button>
+            </div>
+          </div>
+
+          <div id="step-panel-4" class="step-panel">
+            <h3>Paso 4. Reiniciar board</h3>
+            <p class="small">
+              La board reiniciara para volver a operacion normal. La IP puede cambiar al entrar por DHCP;
+              si estabas conectado al AP del nodo, vuelve a la red local antes de abrir la nueva IP.
+            </p>
+            <div class="btn-row">
+              <button id="reboot-board-btn" class="btn">Reiniciar board</button>
+              <button id="back-to-step3-btn" class="btn btn-muted">Volver</button>
+              <button id="stepper-home-btn-4" class="btn btn-muted">Inicio</button>
+            </div>
+          </div>
+
+          <div id="stepper-status" class="status-message hidden"></div>
+        </div>
+      </div>
+
+      <div id="view-edit-network" class="view">
+        <div class="card">
+          <h3>Editar red guardada</h3>
+          <p class="metric">SSID objetivo: <span id="edit-network-ssid" class="value">--</span></p>
+          <div class="input-group">
+            <label for="edit-password-input">Nuevo password</label>
+            <input id="edit-password-input" type="password" placeholder="Dejar vacio conserva el actual" />
+          </div>
+          <div class="input-group">
+            <label for="edit-priority-input">Prioridad</label>
+            <input id="edit-priority-input" type="number" min="1" max="9999" value="10" />
+          </div>
+          <div class="input-group">
+            <label for="edit-enabled-input">Habilitada</label>
+            <select id="edit-enabled-input">
+              <option value="true">Si</option>
+              <option value="false">No</option>
+            </select>
+          </div>
+          <div class="btn-row">
+            <button id="save-edit-network-btn" class="btn">Guardar cambios</button>
+            <button id="cancel-edit-network-btn" class="btn btn-muted">Volver a inicio</button>
+          </div>
+          <div id="edit-network-status" class="status-message hidden"></div>
+        </div>
+      </div>
+
+      <div id="view-node-identity" class="view">
+        <div class="card">
+          <h3>Nombre del nodo y mDNS</h3>
+          <div class="input-group">
+            <label for="board-name-input">Board name</label>
+            <input id="board-name-input" type="text" placeholder="Ej. Aula-Norte-01" />
+          </div>
+          <div class="input-group">
+            <label for="mdns-enabled-input">mDNS habilitado</label>
+            <select id="mdns-enabled-input">
+              <option value="true">Si</option>
+              <option value="false">No</option>
+            </select>
+          </div>
+          <p class="metric">Hostname derivado: <span id="identity-form-mdns-hostname" class="value mono">--</span></p>
+          <p class="metric">Ultima IP local: <span id="identity-form-last-ip" class="value mono">--</span></p>
+          <p class="metric">Ultimo SSID STA: <span id="identity-form-last-ssid" class="value">--</span></p>
+          <p class="metric">SSID AP setup: <span id="identity-form-setup-ssid" class="value">--</span></p>
+          <div class="btn-row">
+            <button id="save-identity-btn" class="btn">Guardar identidad</button>
+            <button id="cancel-identity-btn" class="btn btn-muted">Volver a inicio</button>
+          </div>
+          <div id="identity-status" class="status-message hidden"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let currentView = "home";
+      let currentStep = 1;
+      let stopPolling = false;
+      let latestWifiConfig = null;
+      let latestIdentity = null;
+      let networkBeingEdited = null;
+      let stepState = {
+        ssid: "",
+        password: "",
+        testPassed: false,
+        networkSaved: false
+      };
+
+      function byId(id) {
+        return document.getElementById(id);
+      }
+
+      function showMessage(el, text, ok) {
+        el.textContent = text;
+        el.className = "status-message " + (ok ? "success" : "error");
+      }
+
+      function hideMessage(el) {
+        el.textContent = "";
+        el.className = "status-message hidden";
+      }
+
+      function fetchJson(url, options) {
+        return fetch(url, options).then(function (response) {
+          return response.json();
+        });
+      }
+
+      function showView(name) {
+        currentView = name;
+        const views = ["home", "stepper", "edit-network", "node-identity"];
+        for (let i = 0; i < views.length; i += 1) {
+          const viewName = views[i];
+          byId("view-" + viewName).className = "view" + (viewName === name ? " active" : "");
+        }
+      }
+
+      function renderSavedNetworks() {
+        const tbody = byId("saved-networks-body");
+        if (!latestWifiConfig || !latestWifiConfig.known_networks || !latestWifiConfig.known_networks.length) {
+          tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#94a3b8;">Sin redes guardadas</td></tr>';
+          return;
+        }
+
+        let rows = "";
+        for (let i = 0; i < latestWifiConfig.known_networks.length; i += 1) {
+          const net = latestWifiConfig.known_networks[i];
+          rows += "<tr>";
+          rows += "<td>" + net.ssid + "</td>";
+          rows += "<td>" + net.priority + "</td>";
+          rows += "<td>" + (net.enabled ? "Si" : "No") + "</td>";
+          rows += "<td><div class=\"inline-actions\">";
+          rows += "<button class=\"btn btn-muted\" style=\"padding:0.35rem 0.55rem;\" onclick=\"openNetworkEditor(" + i + ")\">Editar</button>";
+          rows += "<button class=\"btn btn-danger\" style=\"padding:0.35rem 0.55rem;\" onclick=\"deleteStoredNetwork('" + encodeURIComponent(net.ssid) + "')\">Eliminar</button>";
+          rows += "</div></td>";
+          rows += "</tr>";
+        }
+        tbody.innerHTML = rows;
+      }
+
+      function renderVisibleNetworks(data) {
+        const tbody = byId("visible-networks-body");
+        const options = byId("wifi-scan-options");
+        options.innerHTML = "";
+
+        if (!data || !data.networks || !data.networks.length) {
+          tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#94a3b8;">No se detectaron redes</td></tr>';
+          return;
+        }
+
+        let rows = "";
+        for (let i = 0; i < data.networks.length; i += 1) {
+          const net = data.networks[i];
+          const option = document.createElement("option");
+          option.value = net.ssid;
+          options.appendChild(option);
+
+          rows += "<tr>";
+          rows += "<td><button class=\"btn btn-muted\" style=\"padding:0.35rem 0.55rem; margin-right:0.5rem;\" onclick=\"startWizardWithSSID('" + encodeURIComponent(net.ssid) + "')\">Usar</button>" + net.ssid + "</td>";
+          rows += "<td>" + net.signal_quality + " <span class=\"network-pill\">" + net.signal_percent + "%</span></td>";
+          rows += "<td>" + net.security + "</td>";
+          rows += "</tr>";
+        }
+        tbody.innerHTML = rows;
+      }
+
+      function renderHomeSummary(wifi, identity, modePayload) {
+        byId("home-wifi-mode").textContent = wifi && wifi.mode ? wifi.mode : "--";
+        byId("home-wifi-ssid").textContent = wifi && wifi.ssid ? wifi.ssid : "--";
+        byId("home-wifi-ip").textContent = wifi && wifi.ip ? wifi.ip : "--";
+        byId("home-last-connected").textContent = wifi && wifi.last_connected_ssid ? wifi.last_connected_ssid : "--";
+        byId("home-operation-mode").textContent = modePayload && modePayload.operation_mode ? modePayload.operation_mode : "setup";
+
+        byId("identity-board-id").textContent = identity && identity.board_id ? identity.board_id : "--";
+        byId("identity-board-name").textContent = identity && identity.board_name ? identity.board_name : "--";
+        byId("identity-mdns-hostname").textContent = identity && identity.mdns_hostname ? identity.mdns_hostname + ".local" : "--";
+        byId("identity-mdns-enabled").textContent = identity && identity.mdns_enabled ? "Si" : "No";
+        byId("identity-last-ip").textContent = identity && identity.last_local_ip ? identity.last_local_ip : "--";
+        byId("identity-last-ssid").textContent = identity && identity.last_local_ssid ? identity.last_local_ssid : "--";
+        byId("identity-setup-ssid").textContent = latestWifiConfig && latestWifiConfig.setup_ap ? latestWifiConfig.setup_ap.ssid : "--";
+      }
+
+      function renderIdentityForm() {
+        if (!latestIdentity) {
+          return;
+        }
+        byId("board-name-input").value = latestIdentity.board_name || "";
+        byId("mdns-enabled-input").value = latestIdentity.mdns_enabled ? "true" : "false";
+        byId("identity-form-mdns-hostname").textContent = latestIdentity.mdns_hostname ? latestIdentity.mdns_hostname + ".local" : "--";
+        byId("identity-form-last-ip").textContent = latestIdentity.last_local_ip || "--";
+        byId("identity-form-last-ssid").textContent = latestIdentity.last_local_ssid || "--";
+        byId("identity-form-setup-ssid").textContent = latestWifiConfig && latestWifiConfig.setup_ap ? latestWifiConfig.setup_ap.ssid : "--";
+      }
+
+      function renderLastTest(result) {
+        if (!result) {
+          return;
+        }
+      }
+
+      function loadSetupData() {
+        return Promise.all([
+          fetchJson("/wifi"),
+          fetchJson("/wifi/config"),
+          fetchJson("/device/identity"),
+          fetchJson("/operation-mode"),
+          fetchJson("/wifi/scan")
+        ]).then(function (results) {
+          const wifi = results[0] || {};
+          latestWifiConfig = results[1] || null;
+          latestIdentity = results[2] || null;
+          const modePayload = results[3] || {};
+          const scan = results[4] || null;
+
+          renderSavedNetworks();
+          renderVisibleNetworks(scan);
+          renderHomeSummary(wifi, latestIdentity, modePayload);
+          renderIdentityForm();
+        }).catch(function () {});
+      }
+
+      function setStep(stepNumber) {
+        currentStep = stepNumber;
+        for (let i = 1; i <= 4; i += 1) {
+          const indicator = byId("step-indicator-" + i);
+          const panel = byId("step-panel-" + i);
+          indicator.className = "step";
+          if (i < stepNumber) {
+            indicator.className += " complete";
+          }
+          if (i === stepNumber) {
+            indicator.className += " active";
+          }
+          panel.className = "step-panel" + (i === stepNumber ? " active" : "");
+        }
+      }
+
+      function openStepper(prefillSsid) {
+        stepState = {
+          ssid: prefillSsid || "",
+          password: "",
+          testPassed: false,
+          networkSaved: false
+        };
+        byId("ssid-input").value = prefillSsid || "";
+        byId("password-input").value = "";
+        byId("priority-input").value = "10";
+        byId("enabled-input").value = "true";
+        byId("test-ssid").textContent = prefillSsid || "--";
+        hideMessage(byId("stepper-status"));
+        setStep(1);
+        showView("stepper");
+      }
+
+      function startWizardWithSSID(encoded) {
+        openStepper(decodeURIComponent(encoded));
+      }
+
+      function captureStep1() {
+        const ssid = byId("ssid-input").value.trim();
+        const password = byId("password-input").value;
+        if (!ssid) {
+          showMessage(byId("stepper-status"), "Debes ingresar un SSID antes de continuar.", false);
+          return;
+        }
+        stepState.ssid = ssid;
+        stepState.password = password;
+        stepState.testPassed = false;
+        stepState.networkSaved = false;
+        byId("test-ssid").textContent = ssid;
+        hideMessage(byId("stepper-status"));
+        setStep(2);
+      }
+
+      function runTest() {
+        const btn = byId("run-test-btn");
+        btn.disabled = true;
+        showMessage(byId("stepper-status"), "Probando conectividad con la red seleccionada...", true);
+        fetchJson("/wifi/test", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ssid: stepState.ssid,
+            password: stepState.password
+          })
+        }).then(function (result) {
+          if (result.error) {
+            throw new Error(result.error);
+          }
+          if (!result.success) {
+            stepState.testPassed = false;
+            showMessage(byId("stepper-status"), "Prueba fallida: " + result.message, false);
+            return;
+          }
+          stepState.testPassed = true;
+          showMessage(byId("stepper-status"), "Prueba exitosa. Ya puedes guardar la red con prioridad.", true);
+          setStep(3);
+        }).catch(function (err) {
+          stepState.testPassed = false;
+          showMessage(byId("stepper-status"), "No se pudo completar la prueba: " + String(err.message || err), false);
+        }).finally(function () {
+          btn.disabled = false;
+        });
+      }
+
+      function saveNetworkFromStepper() {
+        if (!stepState.testPassed) {
+          showMessage(byId("stepper-status"), "Debes pasar la prueba de conexion antes de guardar.", false);
+          return;
+        }
+
+        const btn = byId("save-network-btn");
+        btn.disabled = true;
+        fetchJson("/wifi/config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ssid: stepState.ssid,
+            password: stepState.password || null,
+            priority: parseInt(byId("priority-input").value || "10", 10),
+            enabled: byId("enabled-input").value === "true"
+          })
+        }).then(function (data) {
+          if (data.error) {
+            throw new Error(data.error);
+          }
+          return fetchJson("/operation-mode", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ operation_mode: "normal" })
+          }).then(function () {
+            latestWifiConfig = data.wifi || latestWifiConfig;
+            stepState.networkSaved = true;
+            showMessage(byId("stepper-status"), "Red guardada. El siguiente paso reinicia la board para volver a modo normal.", true);
+            setStep(4);
+            loadSetupData();
+          });
+        }).catch(function (err) {
+          showMessage(byId("stepper-status"), "No se pudo guardar la red: " + String(err.message || err), false);
+        }).finally(function () {
+          btn.disabled = false;
+        });
+      }
+
+      function rebootBoard() {
+        if (!stepState.networkSaved) {
+          showMessage(byId("stepper-status"), "Primero debes guardar la red.", false);
+          return;
+        }
+        stopPolling = true;
+        byId("reboot-board-btn").disabled = true;
+        showMessage(byId("stepper-status"), "Reiniciando la board. Esta pagina puede desconectarse. Vuelve a abrir la nueva IP cuando el nodo termine de reiniciar.", true);
+        fetch("/system/reboot", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" }
+        }).catch(function () {});
+      }
+
+      function openNetworkEditor(index) {
+        if (!latestWifiConfig || !latestWifiConfig.known_networks || !latestWifiConfig.known_networks[index]) {
+          return;
+        }
+        networkBeingEdited = latestWifiConfig.known_networks[index];
+        byId("edit-network-ssid").textContent = networkBeingEdited.ssid;
+        byId("edit-password-input").value = "";
+        byId("edit-priority-input").value = String(networkBeingEdited.priority);
+        byId("edit-enabled-input").value = networkBeingEdited.enabled ? "true" : "false";
+        hideMessage(byId("edit-network-status"));
+        showView("edit-network");
+      }
+
+      function saveEditedNetwork() {
+        if (!networkBeingEdited) {
+          return;
+        }
+        const btn = byId("save-edit-network-btn");
+        btn.disabled = true;
+        fetchJson("/wifi/config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ssid: networkBeingEdited.ssid,
+            password: byId("edit-password-input").value.trim() ? byId("edit-password-input").value : null,
+            priority: parseInt(byId("edit-priority-input").value || "10", 10),
+            enabled: byId("edit-enabled-input").value === "true"
+          })
+        }).then(function (data) {
+          if (data.error) {
+            throw new Error(data.error);
+          }
+          latestWifiConfig = data.wifi || latestWifiConfig;
+          showMessage(byId("edit-network-status"), "Red actualizada.", true);
+          loadSetupData();
+          setTimeout(function () {
+            showView("home");
+          }, 400);
+        }).catch(function (err) {
+          showMessage(byId("edit-network-status"), "No se pudo actualizar la red: " + String(err.message || err), false);
+        }).finally(function () {
+          btn.disabled = false;
+        });
+      }
+
+      function deleteStoredNetwork(encodedSsid) {
+        const ssid = decodeURIComponent(encodedSsid);
+        fetchJson("/wifi/config/" + encodeURIComponent(ssid), {
+          method: "DELETE"
+        }).then(function (data) {
+          if (data.error) {
+            throw new Error(data.error);
+          }
+          latestWifiConfig = data.wifi || latestWifiConfig;
+          loadSetupData();
+        }).catch(function () {});
+      }
+
+      function openIdentityView() {
+        renderIdentityForm();
+        hideMessage(byId("identity-status"));
+        showView("node-identity");
+      }
+
+      function saveIdentity() {
+        const boardName = byId("board-name-input").value.trim();
+        if (!boardName) {
+          showMessage(byId("identity-status"), "Debes ingresar un nombre para el nodo.", false);
+          return;
+        }
+
+        const btn = byId("save-identity-btn");
+        btn.disabled = true;
+        fetchJson("/device/identity", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            board_name: boardName,
+            mdns_enabled: byId("mdns-enabled-input").value === "true"
+          })
+        }).then(function (data) {
+          if (data.error) {
+            throw new Error(data.error);
+          }
+          latestIdentity = data.identity || latestIdentity;
+          showMessage(byId("identity-status"), "Identidad del nodo actualizada.", true);
+          loadSetupData();
+          setTimeout(function () {
+            showView("home");
+          }, 400);
+        }).catch(function (err) {
+          showMessage(byId("identity-status"), "No se pudo guardar la identidad: " + String(err.message || err), false);
+        }).finally(function () {
+          btn.disabled = false;
+        });
+      }
+
+      function resetWifi() {
+        const btn = byId("reset-wifi-btn");
+        btn.disabled = true;
+        fetchJson("/wifi/reset", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" }
+        }).then(function (data) {
+          if (data.error) {
+            throw new Error(data.error);
+          }
+          loadSetupData();
+        }).catch(function () {}).finally(function () {
+          btn.disabled = false;
+        });
+      }
+
+      function startPolling() {
+        setInterval(function () {
+          if (stopPolling) {
+            return;
+          }
+          loadSetupData();
+        }, 9000);
+      }
+
+      byId("open-stepper-btn").addEventListener("click", function () { openStepper(""); });
+      byId("refresh-scan-btn-home").addEventListener("click", loadSetupData);
+      byId("reload-home-btn").addEventListener("click", loadSetupData);
+      byId("open-identity-btn").addEventListener("click", openIdentityView);
+      byId("reset-wifi-btn").addEventListener("click", resetWifi);
+
+      byId("step1-next-btn").addEventListener("click", captureStep1);
+      byId("refresh-scan-btn-stepper").addEventListener("click", loadSetupData);
+      byId("run-test-btn").addEventListener("click", runTest);
+      byId("save-network-btn").addEventListener("click", saveNetworkFromStepper);
+      byId("reboot-board-btn").addEventListener("click", rebootBoard);
+      byId("back-to-step1-btn").addEventListener("click", function () { setStep(1); hideMessage(byId("stepper-status")); });
+      byId("back-to-step2-btn").addEventListener("click", function () { setStep(2); hideMessage(byId("stepper-status")); });
+      byId("back-to-step3-btn").addEventListener("click", function () { setStep(3); hideMessage(byId("stepper-status")); });
+      byId("stepper-home-btn-1").addEventListener("click", function () { showView("home"); });
+      byId("stepper-home-btn-2").addEventListener("click", function () { showView("home"); });
+      byId("stepper-home-btn-3").addEventListener("click", function () { showView("home"); });
+      byId("stepper-home-btn-4").addEventListener("click", function () { showView("home"); });
+
+      byId("save-edit-network-btn").addEventListener("click", saveEditedNetwork);
+      byId("cancel-edit-network-btn").addEventListener("click", function () { showView("home"); });
+
+      byId("save-identity-btn").addEventListener("click", saveIdentity);
+      byId("cancel-identity-btn").addEventListener("click", function () { showView("home"); });
+
+      loadSetupData();
+      startPolling();
+
+      window.startWizardWithSSID = startWizardWithSSID;
+      window.openNetworkEditor = openNetworkEditor;
+      window.deleteStoredNetwork = deleteStoredNetwork;
+    </script>
+  </body>
+</html>

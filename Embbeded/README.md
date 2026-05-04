@@ -32,6 +32,7 @@ Archivos esperados:
 boot.py
 main.py
 device_config.py
+cloud_buffer.py
 remote_questdb_service.py
 sensor_scd41.py
 scd4x.py
@@ -46,6 +47,7 @@ Archivos persistentes que crea o mantiene el propio nodo:
 ```text
 wifi_config.json
 device_config.json
+cloud_buffer.json
 ```
 
 ## Conexion hardware
@@ -112,6 +114,7 @@ Comportamiento esperado:
 
 1. El nodo crea o carga `wifi_config.json`.
 2. Si no hay redes validas o no logra conectarse, levanta una red tipo `FDL-Setup-XXXXXX`.
+   La clave inicial por defecto del AP de setup es `fdlsetup2026`.
 3. Te conectas manualmente a esa red.
 4. Abres `http://192.168.4.1`.
 5. Guardas una red WiFi valida desde la UI local.
@@ -192,6 +195,9 @@ Una vez dentro de `http://<ip-del-nodo>` o `http://192.168.4.1` en modo setup, l
 - ver lecturas del sensor
 - cambiar intervalos de muestreo y envio
 - crear un nuevo deployment local
+- habilitar o deshabilitar la subida a la nube
+- revisar hasta 10 muestras locales pendientes antes de aprobar la nube
+- limpiar el backlog local de muestras
 - ver estado de backend, tiempo y logs
 
 ## REPL y uso diario

@@ -1,7 +1,9 @@
 import socket
 import time
 import ujson as json
+import machine
 
+import cloud_buffer
 from wifi import (
     add_or_update_network,
     connect_to_known_network,
@@ -9,12 +11,15 @@ from wifi import (
     delete_network,
     ensure_connected,
     get_active_ip,
+    get_last_test_result,
     get_nearby_networks,
     get_setup_ap_credentials,
     get_wifi_config_summary,
     get_wifi_info,
     get_wifi_mode,
     reset_wifi_config,
+    sync_identity_settings,
+    test_wifi_credentials,
     update_setup_ap_password,
 )
 from sensor_scd41 import init_sensor, update_sensor, get_latest_readings, set_sample_interval
@@ -23,13 +28,19 @@ import timer_service
 import device_config
 
 
-try:
-    with open("index.html", "rb") as html_file:
-        INDEX_HTML = html_file.read()
-    print("index.html cargado correctamente")
-except Exception as e:
-    print("ERROR cargando index.html: {}".format(e))
-    INDEX_HTML = b"<html><body><h1>Error: index.html no encontrado</h1></body></html>"
+def _load_html_asset(filename):
+    try:
+        with open(filename, "rb") as html_file:
+            payload = html_file.read()
+        print("{} cargado correctamente".format(filename))
+        return payload
+    except Exception as e:
+        print("ERROR cargando {}: {}".format(filename, e))
+        return "<html><body><h1>Error: {} no encontrado</h1></body></html>".format(filename).encode("utf-8")
+
+
+INDEX_HTML = _load_html_asset("index.html")
+SETUP_HTML = _load_html_asset("setup.html")
 
 
 def _to_bytes(data):
@@ -42,6 +53,25 @@ def _to_bytes(data):
 
 def _json_response(payload):
     return json.dumps(payload)
+
+
+def get_cloud_status():
+    return cloud_buffer.get_cloud_summary(
+        cloud_upload_enabled=device_config.is_cloud_upload_enabled()
+    )
+
+
+def get_device_identity():
+    config = device_config.get_config_dict()
+    return {
+        "board_id": config.get("board_id"),
+        "board_name": config.get("board_name"),
+        "mdns_enabled": bool(config.get("mdns_enabled", True)),
+        "mdns_hostname": config.get("mdns_hostname"),
+        "last_local_ip": config.get("last_local_ip"),
+        "last_local_ssid": config.get("last_local_ssid"),
+        "operation_mode": config.get("operation_mode", "normal"),
+    }
 
 
 def _read_request(cl):
@@ -167,10 +197,13 @@ def send_json(cl, status_line, payload):
 def _log_wifi_endpoint():
     mode = get_wifi_mode()
     ip = get_active_ip()
+    operation_mode = device_config.get_operation_mode()
 
     if mode == "sta" and ip:
         print("\nServidor web iniciado en http://{}".format(ip))
-        print("Dashboard local disponible en modo operativo\n")
+        if device_config.is_mdns_enabled():
+            print("Hostname local esperado: http://{}.local".format(device_config.get_mdns_hostname()))
+        print("Modo de interfaz: {}\n".format(operation_mode))
         return
 
     if mode == "setup_ap":
@@ -179,11 +212,28 @@ def _log_wifi_endpoint():
         print("  SSID setup: {}".format(setup_ssid))
         print("  Password setup: {}".format(setup_password))
         print("  URL: http://{}".format(ip or "192.168.4.1"))
+        print("  Nombre amigable: {}".format(device_config.get_board_name()))
         print("  Conecta tu telefono o laptop a la red del nodo para configurarlo\n")
         return
 
     print("\nServidor web iniciado sin enlace WiFi activo")
     print("La IP se mostrara cuando el nodo conecte por STA o active su AP de setup\n")
+
+
+def _should_serve_setup():
+    mode = get_wifi_mode()
+    operation_mode = device_config.get_operation_mode()
+    if mode == "setup_ap":
+        return True
+    if operation_mode == "setup":
+        return True
+    if mode != "sta":
+        return True
+    return False
+
+
+def _selected_html():
+    return SETUP_HTML if _should_serve_setup() else INDEX_HTML
 
 
 print("Iniciando conectividad WiFi...")
@@ -193,6 +243,7 @@ wifi_available = bool(wlan and wlan.isconnected())
 if not wifi_available:
     print("\nAdvertencia: el nodo arranco sin WiFi operativo")
     if get_wifi_mode() == "setup_ap":
+        device_config.set_operation_mode("setup")
         print("Se activo el modo setup automaticamente.")
     else:
         print("El servidor local seguira disponible para soporte cuando haya IP.")
@@ -281,8 +332,16 @@ def handle_client(cl):
             send_response(cl, "HTTP/1.1 400 Bad Request", "Solicitud invalida")
             return
 
+        if path.startswith("/favicon.ico"):
+            send_response(cl, "HTTP/1.1 204 No Content", b"", "image/x-icon")
+            return
+
         if path == "/" or path.startswith("/index"):
-            send_response(cl, "HTTP/1.1 200 OK", INDEX_HTML, "text/html; charset=utf-8")
+            send_response(cl, "HTTP/1.1 200 OK", _selected_html(), "text/html; charset=utf-8")
+            return
+
+        if path.startswith("/setup"):
+            send_response(cl, "HTTP/1.1 200 OK", SETUP_HTML, "text/html; charset=utf-8")
             return
 
         if path.startswith("/data"):
@@ -291,6 +350,22 @@ def handle_client(cl):
 
         if path.startswith("/wifi/scan"):
             send_json(cl, "HTTP/1.1 200 OK", get_nearby_networks(wlan, limit=8))
+            return
+
+        if path.startswith("/wifi/test"):
+            if method != "POST":
+                send_json(cl, "HTTP/1.1 405 Method Not Allowed", {"error": "method not allowed"})
+                return
+
+            ssid = body.get("ssid")
+            password = body.get("password")
+            try:
+                result = test_wifi_credentials(ssid, password)
+                send_json(cl, "HTTP/1.1 200 OK", result)
+            except ValueError as e:
+                send_json(cl, "HTTP/1.1 400 Bad Request", {"error": str(e)})
+            except Exception as e:
+                send_json(cl, "HTTP/1.1 500 Internal Server Error", {"error": str(e)})
             return
 
         if path.startswith("/wifi/config/"):
@@ -354,6 +429,7 @@ def handle_client(cl):
                 return
 
             try:
+                device_config.set_operation_mode("setup")
                 summary = reset_wifi_config()
                 wlan = connect_wifi(do_scan=False, verbose=False)
                 info = _refresh_wifi_state()
@@ -385,6 +461,57 @@ def handle_client(cl):
             send_json(cl, "HTTP/1.1 200 OK", get_wifi_info(wlan))
             return
 
+        if path.startswith("/operation-mode"):
+            if method == "GET":
+                send_json(
+                    cl,
+                    "HTTP/1.1 200 OK",
+                    {
+                        "operation_mode": device_config.get_operation_mode(),
+                        "effective_view": "setup" if _should_serve_setup() else "normal",
+                        "wifi_mode": get_wifi_mode(),
+                        "last_test": get_last_test_result(),
+                    },
+                )
+                return
+
+            if method != "POST":
+                send_json(cl, "HTTP/1.1 405 Method Not Allowed", {"error": "method not allowed"})
+                return
+
+            try:
+                requested_mode = body.get("operation_mode", "normal")
+                if requested_mode not in ("setup", "normal"):
+                    send_json(cl, "HTTP/1.1 400 Bad Request", {"error": "operation_mode invalido"})
+                    return
+                device_config.set_operation_mode(requested_mode)
+                send_json(
+                    cl,
+                    "HTTP/1.1 200 OK",
+                    {
+                        "status": "ok",
+                        "operation_mode": device_config.get_operation_mode(),
+                        "effective_view": "setup" if _should_serve_setup() else "normal",
+                    },
+                )
+            except Exception as e:
+                send_json(cl, "HTTP/1.1 500 Internal Server Error", {"error": str(e)})
+            return
+
+        if path.startswith("/system/reboot"):
+            if method != "POST":
+                send_json(cl, "HTTP/1.1 405 Method Not Allowed", {"error": "method not allowed"})
+                return
+
+            send_json(cl, "HTTP/1.1 200 OK", {"status": "ok", "message": "Reiniciando board..."})
+            try:
+                cl.close()
+            except Exception:
+                pass
+            time.sleep(0.4)
+            machine.reset()
+            return
+
         if path.startswith("/questdb"):
             from remote_questdb_service import get_service_stats, get_send_interval, get_board_id, get_table_name
 
@@ -393,6 +520,33 @@ def handle_client(cl):
             stats["board_id"] = get_board_id()
             stats["table_name"] = get_table_name()
             send_json(cl, "HTTP/1.1 200 OK", stats)
+            return
+
+        if path.startswith("/cloud/pending/clear"):
+            if method != "POST":
+                send_json(cl, "HTTP/1.1 405 Method Not Allowed", {"error": "method not allowed"})
+                return
+
+            cloud_buffer.clear_pending_samples()
+            send_json(cl, "HTTP/1.1 200 OK", {"status": "ok", "cloud": get_cloud_status()})
+            return
+
+        if path.startswith("/cloud/config"):
+            if method != "POST":
+                send_json(cl, "HTTP/1.1 405 Method Not Allowed", {"error": "method not allowed"})
+                return
+
+            if "cloud_upload_enabled" not in body:
+                send_json(cl, "HTTP/1.1 400 Bad Request", {"error": "missing cloud_upload_enabled"})
+                return
+
+            enabled = bool(body.get("cloud_upload_enabled"))
+            device_config.set_cloud_upload_enabled(enabled)
+            send_json(cl, "HTTP/1.1 200 OK", {"status": "ok", "cloud": get_cloud_status()})
+            return
+
+        if path.startswith("/cloud"):
+            send_json(cl, "HTTP/1.1 200 OK", get_cloud_status())
             return
 
         if path.startswith("/time"):
@@ -438,6 +592,39 @@ def handle_client(cl):
                 }
                 print("Nuevo deployment creado: {}".format(new_deployment_id))
                 send_json(cl, "HTTP/1.1 200 OK", response_data)
+            except Exception as e:
+                send_json(cl, "HTTP/1.1 500 Internal Server Error", {"error": str(e)})
+            return
+
+        if path.startswith("/device/identity"):
+            if method == "GET":
+                send_json(cl, "HTTP/1.1 200 OK", get_device_identity())
+                return
+
+            if method != "POST":
+                send_json(cl, "HTTP/1.1 405 Method Not Allowed", {"error": "method not allowed"})
+                return
+
+            try:
+                has_updates = False
+                if "board_name" in body:
+                    board_name = str(body.get("board_name", "")).strip()
+                    if not board_name:
+                        send_json(cl, "HTTP/1.1 400 Bad Request", {"error": "board_name es obligatorio"})
+                        return
+                    device_config.set_board_name(board_name)
+                    has_updates = True
+
+                if "mdns_enabled" in body:
+                    device_config.set_mdns_enabled(bool(body.get("mdns_enabled")))
+                    has_updates = True
+
+                if not has_updates:
+                    send_json(cl, "HTTP/1.1 400 Bad Request", {"error": "no identity fields provided"})
+                    return
+
+                sync_identity_settings(restart_ap=True)
+                send_json(cl, "HTTP/1.1 200 OK", {"status": "ok", "identity": get_device_identity()})
             except Exception as e:
                 send_json(cl, "HTTP/1.1 500 Internal Server Error", {"error": str(e)})
             return
@@ -531,11 +718,10 @@ while True:
     except Exception as e:
         print("Error actualizando sensor: {}".format(e))
 
-    if wifi_available:
-        try:
-            update_questdb()
-        except Exception as e:
-            print("Error enviando al backend: {}".format(e))
+    try:
+        update_questdb()
+    except Exception as e:
+        print("Error procesando sincronizacion backend: {}".format(e))
 
     try:
         cl, client_addr = s.accept()

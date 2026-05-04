@@ -8,6 +8,7 @@ El backend traduce estas peticiones JSON a QuestDB.
 import ujson as json
 import urequests
 
+import cloud_buffer
 import device_config
 import timer_service
 from sensor_scd41 import get_latest_readings
@@ -105,6 +106,36 @@ def _post_json(path, payload):
             print(f"  Respuesta: {response_payload}")
 
     return False, response_payload
+
+
+def _build_current_sample():
+    deployment_id = device_config.get_deployment_id()
+    if not deployment_id:
+        print("Backend API: No hay deployment_id, no se puede procesar telemetria")
+        return None
+
+    data = get_latest_readings()
+    if not data:
+        print("Backend API: No hay datos para procesar")
+        return None
+
+    return {
+        "deployment_id": deployment_id,
+        "co2": float(data.get("co2", 0)),
+        "temp": float(data.get("temp", 0.0)),
+        "rh": float(data.get("rh", 0.0)),
+        "errors": int(data.get("errors", 0)),
+        "timestamp": str(timer_service.get_timestamp_ns()),
+    }
+
+
+def _buffer_sample(sample):
+    summary = cloud_buffer.append_sample(sample)
+    print(
+        "Backend API: subida a nube deshabilitada. "
+        "Muestra guardada localmente (pendientes: {}).".format(summary.get("pending_sample_count", 0))
+    )
+    return summary
 
 
 def _deployment_exists(deployment_id):
@@ -233,20 +264,19 @@ def enviar_telemetria():
     """
     global _send_count
 
-    deployment_id = device_config.get_deployment_id()
-    if not deployment_id:
-        print("Backend API: No hay deployment_id, no se puede enviar telemetria")
+    sample = _build_current_sample()
+    if not sample:
         return False
 
-    data = get_latest_readings()
-    if not data:
-        print("Backend API: No hay datos para enviar")
-        return False
+    if not device_config.is_cloud_upload_enabled():
+        _buffer_sample(sample)
+        return True
 
-    co2 = float(data.get("co2", 0))
-    temp = float(data.get("temp", 0.0))
-    rh = float(data.get("rh", 0.0))
-    errors = int(data.get("errors", 0))
+    deployment_id = sample["deployment_id"]
+    co2 = sample["co2"]
+    temp = sample["temp"]
+    rh = sample["rh"]
+    errors = sample["errors"]
 
     payload = {
         "deploymentId": deployment_id,
@@ -254,7 +284,7 @@ def enviar_telemetria():
         "temp": temp,
         "rh": rh,
         "errors": errors,
-        "timestamp": str(timer_service.get_timestamp_ns()),
+        "timestamp": sample["timestamp"],
     }
 
     success, response_payload = _post_json(TELEMETRY_PATH, payload)
@@ -323,6 +353,7 @@ def get_service_stats():
         "send_count": _send_count,
         "error_count": _error_count,
         "last_send": _last_send,
+        "cloud_upload_enabled": device_config.is_cloud_upload_enabled(),
     }
 
 

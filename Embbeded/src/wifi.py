@@ -10,6 +10,7 @@ Provisioning WiFi para Raspberry Pi Pico W / Pico 2 W.
 import network
 import time
 import ujson as json
+import device_config
 
 try:
     import machine
@@ -31,6 +32,8 @@ _current_ssid = None
 _mode = "offline"
 _last_connection_attempt = 0
 _last_connection_error = None
+_last_test_result = None
+_mdns_status = "not_applied"
 
 
 def _get_sta_wlan():
@@ -57,14 +60,18 @@ def _get_mac_suffix():
         return "00000000", "000000"
 
 
+def _build_setup_ap_ssid():
+    board_name = device_config.get_board_name()
+    return "FDL-Setup-{}".format(board_name)
+
+
 def _build_default_config():
-    last8, last6 = _get_mac_suffix()
     return {
         "known_networks": [],
         "last_connected_ssid": None,
         "setup_ap": {
-            "ssid": "FDL-Setup-{}".format(last6),
-            "password": "FDL-{}".format(last8),
+            "ssid": _build_setup_ap_ssid(),
+            "password": "fdlsetup2026",
             "channel": DEFAULT_AP_CHANNEL,
             "enabled": True,
         },
@@ -127,6 +134,27 @@ def _sanitize_config(config):
                 sanitized["known_networks"].append(normalized)
 
     return sanitized
+
+
+def _apply_mdns_hostname():
+    global _mdns_status
+
+    if not hasattr(network, "hostname"):
+        _mdns_status = "unsupported"
+        return None
+
+    try:
+        if device_config.is_mdns_enabled():
+            hostname = device_config.get_mdns_hostname()
+        else:
+            hostname = "pico-node"
+        network.hostname(hostname)
+        _mdns_status = "applied" if device_config.is_mdns_enabled() else "disabled"
+        return hostname
+    except Exception as e:
+        print("mDNS hostname no pudo aplicarse: {}".format(e))
+        _mdns_status = "error"
+        return None
 
 
 def load_wifi_config():
@@ -203,6 +231,7 @@ def _init_sta():
         time.sleep(0.3)
     except Exception:
         pass
+    _apply_mdns_hostname()
     wlan.active(True)
     return wlan
 
@@ -290,6 +319,11 @@ def _connect_once(wlan, entry, timeout_seconds, visible_ssids, verbose=True):
             config = load_wifi_config()
             config["last_connected_ssid"] = ssid
             save_wifi_config(config)
+            try:
+                ip = wlan.ifconfig()[0]
+            except Exception:
+                ip = None
+            device_config.set_last_local_network(ip=ip, ssid=ssid)
             stop_setup_ap()
             return True
 
@@ -404,6 +438,9 @@ def get_wifi_info(wlan):
         "auto_ap_enabled": config["fallback"]["auto_ap_enabled"],
         "setup_ap_ssid": config["setup_ap"]["ssid"],
         "last_connection_error": _last_connection_error,
+        "mdns_enabled": device_config.is_mdns_enabled(),
+        "mdns_hostname": device_config.get_mdns_hostname(),
+        "mdns_status": _mdns_status,
     }
 
     if wlan and wlan.isconnected():
@@ -612,3 +649,105 @@ def connect_to_known_network(ssid=None, verbose=True):
 def get_setup_ap_credentials():
     config = load_wifi_config()
     return config["setup_ap"]["ssid"], config["setup_ap"]["password"]
+
+
+def sync_identity_settings(restart_ap=False):
+    config = load_wifi_config()
+    config["setup_ap"]["ssid"] = _build_setup_ap_ssid()
+    save_wifi_config(config)
+
+    if restart_ap and get_wifi_mode() == "setup_ap":
+        start_setup_ap(verbose=False)
+
+    return get_wifi_config_summary()
+
+
+def get_last_test_result():
+    return _last_test_result or {
+        "success": False,
+        "ssid": None,
+        "ip": None,
+        "message": "Sin prueba reciente",
+    }
+
+
+def test_wifi_credentials(ssid, password, timeout_seconds=None):
+    global _last_test_result, _last_connection_error
+
+    ssid = str(ssid or "").strip()
+    password = "" if password is None else str(password)
+    if not ssid:
+        raise ValueError("ssid es obligatorio")
+
+    wlan = _init_sta()
+    visible_ssids = _scan_visible_ssids(wlan)
+    if visible_ssids and ssid not in visible_ssids:
+        _last_connection_error = "ssid_not_visible"
+        _last_test_result = {
+            "success": False,
+            "ssid": ssid,
+            "ip": None,
+            "message": "La red no aparece en el escaneo actual",
+        }
+        return _last_test_result
+
+    try:
+        wlan.disconnect()
+        time.sleep(0.4)
+    except Exception:
+        pass
+
+    wlan.connect(ssid, password)
+    started_at = time.time()
+    timeout_seconds = timeout_seconds or DEFAULT_CONNECT_TIMEOUT
+
+    while time.time() - started_at < timeout_seconds:
+        if wlan.isconnected():
+            ip = None
+            try:
+                ip = wlan.ifconfig()[0]
+            except Exception:
+                ip = None
+            try:
+                wlan.disconnect()
+            except Exception:
+                pass
+
+            _last_connection_error = None
+            _last_test_result = {
+                "success": True,
+                "ssid": ssid,
+                "ip": ip,
+                "message": "Conexion valida. El guardado final y el reinicio siguen siendo requeridos.",
+            }
+            return _last_test_result
+        time.sleep(1)
+
+    status = None
+    try:
+        status = wlan.status()
+    except Exception:
+        status = None
+
+    if status == network.STAT_WRONG_PASSWORD:
+        _last_connection_error = "wrong_password"
+        message = "Password incorrecta"
+    elif status == network.STAT_NO_AP_FOUND:
+        _last_connection_error = "no_ap_found"
+        message = "No se encontro el AP"
+    else:
+        _last_connection_error = "connect_fail"
+        message = "No se pudo establecer la conexion"
+
+    try:
+        wlan.disconnect()
+    except Exception:
+        pass
+
+    _last_test_result = {
+        "success": False,
+        "ssid": ssid,
+        "ip": None,
+        "message": message,
+    }
+    return _last_test_result

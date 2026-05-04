@@ -13,14 +13,14 @@
       }
 
       h1 {
-        margin-bottom: 0.4rem;
+        margin-bottom: 0.3rem;
       }
 
       h2 {
         margin-top: 0;
         font-size: 0.95rem;
         font-weight: 400;
-        color: #9ca3af;
+        color: #94a3b8;
         max-width: 64rem;
       }
 
@@ -33,20 +33,19 @@
 
       .card {
         background: #111827;
-        border-radius: 0.75rem;
-        padding: 1rem 1.25rem;
         border: 1px solid #1f2937;
-        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.35);
+        border-radius: 0.85rem;
+        padding: 1rem 1.15rem;
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
       }
 
-      .card-full-width {
+      .card-full {
         grid-column: 1 / -1;
       }
 
       .card h3 {
         margin-top: 0;
-        margin-bottom: 0.75rem;
-        font-size: 1.05rem;
+        margin-bottom: 0.85rem;
       }
 
       .metric {
@@ -55,13 +54,8 @@
       }
 
       .value {
-        font-weight: 600;
+        font-weight: 700;
         color: #fbbf24;
-      }
-
-      .unit {
-        color: #9ca3af;
-        font-size: 0.8rem;
       }
 
       .status-ok {
@@ -76,29 +70,26 @@
         color: #f87171;
       }
 
-      .setup-banner {
-        display: none;
-        margin-top: 1rem;
-        padding: 0.9rem 1rem;
-        border-radius: 0.75rem;
-        border: 1px solid rgba(251, 191, 36, 0.35);
-        background: rgba(251, 191, 36, 0.12);
+      .unit {
+        font-size: 0.8rem;
+        color: #94a3b8;
       }
 
-      .setup-banner.visible {
-        display: block;
+      .mono {
+        font-family: ui-monospace, Consolas, monospace;
       }
 
-      .setup-banner strong {
-        color: #fbbf24;
+      .small {
+        color: #94a3b8;
+        font-size: 0.82rem;
       }
 
       .input-group {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        gap: 0.6rem;
-        margin: 0.65rem 0;
+        gap: 0.65rem;
+        margin: 0.7rem 0;
       }
 
       .input-group label {
@@ -110,9 +101,9 @@
       .input-group select {
         flex: 1;
         min-width: 0;
-        padding: 0.45rem 0.55rem;
-        border-radius: 0.45rem;
-        border: 1px solid #374151;
+        padding: 0.48rem 0.56rem;
+        border-radius: 0.5rem;
+        border: 1px solid #334155;
         background: #020617;
         color: #e5e7eb;
       }
@@ -126,15 +117,15 @@
       .btn-row {
         display: flex;
         flex-wrap: wrap;
-        gap: 0.6rem;
-        margin-top: 0.8rem;
+        gap: 0.65rem;
+        margin-top: 0.9rem;
       }
 
       .btn {
-        padding: 0.6rem 0.95rem;
         border: none;
-        border-radius: 0.5rem;
-        font-weight: 600;
+        border-radius: 0.55rem;
+        padding: 0.62rem 0.95rem;
+        font-weight: 700;
         cursor: pointer;
         background: #fbbf24;
         color: #0f172a;
@@ -145,26 +136,27 @@
         color: #eff6ff;
       }
 
-      .btn-danger {
-        background: #b91c1c;
-        color: #fee2e2;
-      }
-
       .btn-muted {
         background: #334155;
         color: #e2e8f0;
       }
 
+      .btn-danger {
+        background: #b91c1c;
+        color: #fee2e2;
+      }
+
       .btn:disabled {
-        opacity: 0.55;
+        opacity: 0.6;
         cursor: not-allowed;
       }
 
       .status-message {
-        margin-top: 0.8rem;
-        padding: 0.55rem 0.7rem;
-        border-radius: 0.45rem;
+        margin-top: 0.85rem;
+        padding: 0.6rem 0.75rem;
+        border-radius: 0.5rem;
         font-size: 0.88rem;
+        border: 1px solid transparent;
       }
 
       .status-message.hidden {
@@ -174,24 +166,20 @@
       .status-message.success {
         background: rgba(34, 197, 94, 0.12);
         color: #22c55e;
-        border: 1px solid rgba(34, 197, 94, 0.3);
+        border-color: rgba(34, 197, 94, 0.3);
       }
 
       .status-message.error {
         background: rgba(248, 113, 113, 0.12);
         color: #f87171;
-        border: 1px solid rgba(248, 113, 113, 0.3);
+        border-color: rgba(248, 113, 113, 0.3);
       }
 
       table {
         width: 100%;
         border-collapse: collapse;
-        margin-top: 0.6rem;
+        margin-top: 0.7rem;
         font-size: 0.85rem;
-      }
-
-      thead {
-        border-bottom: 1px solid #374151;
       }
 
       th,
@@ -202,149 +190,50 @@
         border-bottom: 1px solid #1f2937;
       }
 
+      th {
+        color: #94a3b8;
+        font-size: 0.8rem;
+      }
+
       tbody tr:last-child td {
         border-bottom: none;
       }
 
-      th {
-        color: #9ca3af;
-        font-size: 0.8rem;
-      }
-
-      .mono {
-        font-family: ui-monospace, Consolas, monospace;
-      }
-
-      .small {
-        color: #9ca3af;
-        font-size: 0.78rem;
-      }
-
-      #debug-json {
-        margin-top: 1rem;
-        padding: 0.6rem;
+      pre {
+        margin-top: 0.9rem;
+        padding: 0.7rem;
         background: #020617;
-        border-radius: 0.5rem;
-        max-height: 8rem;
-        overflow: auto;
-        color: #9ca3af;
+        border-radius: 0.55rem;
         font-size: 0.76rem;
+        color: #94a3b8;
+        overflow: auto;
       }
     </style>
   </head>
   <body>
     <h1>Frontera DataLabs IoT Dashboard</h1>
     <h2>
-      Panel local del nodo. Si el equipo no encuentra una red WiFi conocida, entra en modo setup para
-      que puedas conectarte a su AP, guardar credenciales y reanudar el modo operativo.
+      Vista operativa del nodo. Desde aqui puedes revisar lecturas, deployment, backlog local,
+      sincronizacion backend y cambiar a modo setup si necesitas reconfigurar redes WiFi.
     </h2>
-
-    <div id="setup-banner" class="setup-banner">
-      <strong>Modo setup activo.</strong>
-      <span id="setup-banner-text">
-        Conectate a la red del nodo, guarda una red WiFi valida y el dispositivo intentara conectarse por STA.
-      </span>
-    </div>
 
     <div class="grid">
       <div class="card">
         <h3>Conexion WiFi</h3>
         <p class="metric">Estado: <span id="wifi-status" class="value status-warn">Consultando...</span></p>
-        <p class="metric">Modo: <span id="wifi-mode" class="value">--</span></p>
+        <p class="metric">Modo WiFi: <span id="wifi-mode" class="value">--</span></p>
         <p class="metric">SSID activo: <span id="wifi-ssid" class="value">--</span></p>
-        <p class="metric">IP activa: <span id="wifi-ip" class="value">--</span></p>
-        <p class="metric">Ultima red conectada: <span id="wifi-last-ssid" class="value">--</span></p>
+        <p class="metric">IP local: <span id="wifi-ip" class="value mono">--</span></p>
+        <p class="metric">Ultima red valida: <span id="wifi-last-ssid" class="value">--</span></p>
         <p class="metric">Calidad: <span id="wifi-quality" class="value">--</span></p>
         <p class="metric">RSSI: <span id="wifi-rssi" class="value">--</span> <span class="unit">dBm</span></p>
         <p class="metric">Error reciente: <span id="wifi-last-error" class="value">--</span></p>
-        <p class="metric">AP setup: <span id="wifi-setup-ssid" class="value">--</span></p>
-
-        <h4 class="small" style="margin-top: 1.25rem;">Redes detectadas</h4>
-        <table>
-          <thead>
-            <tr>
-              <th>SSID</th>
-              <th>Senal</th>
-              <th>Calidad</th>
-              <th>Seguridad</th>
-            </tr>
-          </thead>
-          <tbody id="wifi-scan-table-body">
-            <tr>
-              <td colspan="4" style="text-align: center; color: #9ca3af;">Escaneando...</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="card">
-        <h3>Provisioning WiFi</h3>
-
-        <div class="input-group">
-          <label for="wifi-ssid-input">SSID</label>
-          <input id="wifi-ssid-input" list="wifi-scan-options" type="text" placeholder="Nombre de la red" />
-          <datalist id="wifi-scan-options"></datalist>
-        </div>
-
-        <div class="input-group">
-          <label for="wifi-password-input">Password WiFi</label>
-          <input id="wifi-password-input" type="password" placeholder="Se guarda solo en la Pico" />
-        </div>
-
-        <div class="input-group">
-          <label for="wifi-priority-input">Prioridad</label>
-          <input id="wifi-priority-input" type="number" value="10" min="1" max="9999" />
-        </div>
-
-        <div class="input-group">
-          <label for="wifi-enabled-input">Habilitada</label>
-          <select id="wifi-enabled-input">
-            <option value="true">Si</option>
-            <option value="false">No</option>
-          </select>
-        </div>
-
+        <p class="metric">Modo de interfaz: <span id="operation-mode" class="value">--</span></p>
         <div class="btn-row">
-          <button id="save-wifi-btn" class="btn">Guardar y conectar</button>
-          <button id="connect-wifi-btn" class="btn btn-secondary">Conectar ahora</button>
-          <button id="clear-wifi-form-btn" class="btn btn-muted">Limpiar formulario</button>
+          <button id="enter-setup-btn" class="btn btn-secondary">Modificar redes WiFi</button>
+          <button id="reload-wifi-btn" class="btn btn-muted">Refrescar WiFi</button>
         </div>
-
-        <div id="wifi-config-status" class="status-message hidden"></div>
-
-        <h4 class="small" style="margin-top: 1.2rem;">Redes guardadas</h4>
-        <table>
-          <thead>
-            <tr>
-              <th>SSID</th>
-              <th>Prioridad</th>
-              <th>Activa</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="wifi-config-table-body">
-            <tr>
-              <td colspan="4" style="text-align: center; color: #9ca3af;">Sin redes guardadas</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <h4 class="small" style="margin-top: 1.2rem;">AP de setup</h4>
-        <p class="metric">SSID setup: <span id="setup-ap-ssid" class="value">--</span></p>
-        <p class="metric">Canal: <span id="setup-ap-channel" class="value">--</span></p>
-        <p class="metric">Fallback automatico: <span id="wifi-fallback-status" class="value">--</span></p>
-
-        <div class="input-group">
-          <label for="setup-ap-password-input">Nueva clave del AP</label>
-          <input id="setup-ap-password-input" type="password" placeholder="Minimo 8 caracteres" />
-        </div>
-
-        <div class="btn-row">
-          <button id="save-setup-ap-password-btn" class="btn">Actualizar clave AP</button>
-          <button id="reset-wifi-btn" class="btn btn-danger">Reset WiFi</button>
-        </div>
-
-        <div id="setup-ap-status" class="status-message hidden"></div>
+        <div id="wifi-status-msg" class="status-message hidden"></div>
       </div>
 
       <div class="card">
@@ -352,10 +241,10 @@
         <p class="metric">CO2: <span id="co2" class="value">--</span> <span class="unit">ppm</span></p>
         <p class="metric">Temperatura: <span id="temp" class="value">--</span> <span class="unit">C</span></p>
         <p class="metric">Humedad relativa: <span id="rh" class="value">--</span> <span class="unit">%rH</span></p>
-        <p class="metric">Ultima lectura valida: <span id="last-ok" class="value">--:--:--</span></p>
-        <p class="metric">Errores acumulados: <span id="errors" class="value">0</span></p>
-        <p class="metric">Estado del sensor: <span id="sensor-status" class="status-warn">Esperando...</span></p>
-        <pre id="debug-json"></pre>
+        <p class="metric">Ultima lectura valida: <span id="last-ok" class="value">--</span></p>
+        <p class="metric">Errores acumulados: <span id="errors" class="value">--</span></p>
+        <p class="metric">Estado sensor: <span id="sensor-status" class="value status-warn">Esperando...</span></p>
+        <pre id="sensor-debug">{}</pre>
       </div>
 
       <div class="card">
@@ -372,8 +261,8 @@
           </select>
         </div>
         <div class="input-group">
-          <label for="questdb-interval-input">Intervalo backend</label>
-          <select id="questdb-interval-input">
+          <label for="backend-interval-input">Intervalo backend</label>
+          <select id="backend-interval-input">
             <option value="20">20 segundos</option>
             <option value="60">1 minuto</option>
             <option value="300">5 minutos</option>
@@ -382,8 +271,20 @@
             <option value="1800">30 minutos</option>
           </select>
         </div>
-        <button id="apply-config-btn" class="btn">Guardar intervalos</button>
-        <div id="config-status" class="status-message hidden"></div>
+        <div class="btn-row">
+          <button id="save-intervals-btn" class="btn">Guardar intervalos</button>
+        </div>
+        <div id="interval-status" class="status-message hidden"></div>
+
+        <h4 class="small" style="margin-top: 1rem;">Aprobacion de subida a la nube</h4>
+        <p class="metric">Estado nube: <span id="cloud-enabled" class="value">--</span></p>
+        <p class="metric">Muestras pendientes: <span id="cloud-pending-count" class="value">--</span></p>
+        <div class="btn-row">
+          <button id="enable-cloud-btn" class="btn">Habilitar nube</button>
+          <button id="disable-cloud-btn" class="btn btn-muted">Deshabilitar nube</button>
+          <button id="clear-cloud-btn" class="btn btn-danger">Limpiar backlog</button>
+        </div>
+        <div id="cloud-status-msg" class="status-message hidden"></div>
       </div>
 
       <div class="card">
@@ -394,33 +295,38 @@
 
         <div class="input-group">
           <label for="device-latitude-input">Latitud</label>
-          <input id="device-latitude-input" type="number" step="0.000001" placeholder="4.609710" />
+          <input id="device-latitude-input" type="number" step="0.000001" />
         </div>
-
         <div class="input-group">
           <label for="device-longitude-input">Longitud</label>
-          <input id="device-longitude-input" type="number" step="0.000001" placeholder="-74.081750" />
+          <input id="device-longitude-input" type="number" step="0.000001" />
         </div>
-
         <div class="input-group">
-          <label for="device-location-name-input">Nombre lugar</label>
-          <input id="device-location-name-input" type="text" placeholder="Opcional" />
+          <label for="device-location-input">Nombre lugar</label>
+          <input id="device-location-input" type="text" placeholder="Opcional" />
         </div>
 
-        <button id="apply-device-config-btn" class="btn">Crear nuevo deployment</button>
-        <div id="device-config-status" class="status-message hidden"></div>
+        <div class="btn-row">
+          <button id="save-device-btn" class="btn">Crear nuevo deployment</button>
+        </div>
+        <div id="device-status" class="status-message hidden"></div>
       </div>
 
       <div class="card">
         <h3>Sincronizacion backend</h3>
-        <p class="metric">Estado: <span id="questdb-status" class="value status-warn">Consultando...</span></p>
-        <p class="metric">Datos enviados: <span id="questdb-sent" class="value">--</span></p>
-        <p class="metric">Errores: <span id="questdb-errors" class="value">--</span></p>
-        <p class="metric">Tasa de exito: <span id="questdb-success-rate" class="value">--</span></p>
-        <p class="metric">Ultimo envio: <span id="questdb-last-send" class="value">--:--:--</span></p>
-        <p class="metric">Intervalo: <span id="questdb-interval" class="value">--</span> <span class="unit">s</span></p>
-        <p class="metric">Board ID: <span id="questdb-board-id" class="value mono">--</span></p>
-        <p class="metric">Tabla: <span id="questdb-table-name" class="value mono">--</span></p>
+        <p class="metric">Estado: <span id="backend-status" class="value status-warn">Consultando...</span></p>
+        <p class="metric">Datos enviados: <span id="backend-sent" class="value">--</span></p>
+        <p class="metric">Errores: <span id="backend-errors" class="value">--</span></p>
+        <p class="metric">Tasa de exito: <span id="backend-success" class="value">--</span></p>
+        <p class="metric">Ultimo envio: <span id="backend-last-send" class="value">--</span></p>
+        <p class="metric">Intervalo: <span id="backend-interval" class="value">--</span> <span class="unit">s</span></p>
+        <p class="metric">Tabla: <span id="backend-table" class="value mono">--</span></p>
+
+        <h4 class="small" style="margin-top: 1rem;">Backlog local</h4>
+        <p class="metric">CO2 en cero: <span id="zero-co2" class="value">--</span></p>
+        <p class="metric">Temp en cero: <span id="zero-temp" class="value">--</span></p>
+        <p class="metric">RH en cero: <span id="zero-rh" class="value">--</span></p>
+        <p class="metric">Muestras con error: <span id="error-samples" class="value">--</span></p>
       </div>
 
       <div class="card">
@@ -432,9 +338,29 @@
         <p class="metric">Offset UTC: <span id="time-offset" class="value">--</span></p>
       </div>
 
-      <div class="card card-full-width">
+      <div class="card card-full">
+        <h3>Ultimas muestras locales pendientes</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>CO2</th>
+              <th>Temp</th>
+              <th>RH</th>
+              <th>Errors</th>
+            </tr>
+          </thead>
+          <tbody id="cloud-pending-table-body">
+            <tr>
+              <td colspan="5" style="text-align: center; color: #94a3b8;">Sin backlog local</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card card-full">
         <h3>Logs de error</h3>
-        <p class="metric">Total errores: <span id="logger-error-count" class="value">--</span></p>
+        <p class="metric">Total errores: <span id="logger-count" class="value">--</span></p>
         <table>
           <thead>
             <tr>
@@ -443,9 +369,9 @@
               <th>Mensaje</th>
             </tr>
           </thead>
-          <tbody id="error-log-table-body">
+          <tbody id="logger-table-body">
             <tr>
-              <td colspan="3" style="text-align: center; color: #9ca3af;">Sin datos aun</td>
+              <td colspan="3" style="text-align: center; color: #94a3b8;">Sin datos aun</td>
             </tr>
           </tbody>
         </table>
@@ -453,688 +379,354 @@
     </div>
 
     <script>
-      const co2El = document.getElementById("co2");
-      const tempEl = document.getElementById("temp");
-      const rhEl = document.getElementById("rh");
-      const lastOkEl = document.getElementById("last-ok");
-      const errorsEl = document.getElementById("errors");
-      const statusEl = document.getElementById("sensor-status");
-      const debugEl = document.getElementById("debug-json");
+      const POLL_MS = 8000;
+      let pollTimer = null;
 
-      const wifiStatusEl = document.getElementById("wifi-status");
-      const wifiModeEl = document.getElementById("wifi-mode");
-      const wifiSsidEl = document.getElementById("wifi-ssid");
-      const wifiIpEl = document.getElementById("wifi-ip");
-      const wifiLastSsidEl = document.getElementById("wifi-last-ssid");
-      const wifiQualityEl = document.getElementById("wifi-quality");
-      const wifiRssiEl = document.getElementById("wifi-rssi");
-      const wifiLastErrorEl = document.getElementById("wifi-last-error");
-      const wifiSetupSsidEl = document.getElementById("wifi-setup-ssid");
-      const setupBannerEl = document.getElementById("setup-banner");
-      const setupBannerTextEl = document.getElementById("setup-banner-text");
-
-      const wifiSsidInput = document.getElementById("wifi-ssid-input");
-      const wifiPasswordInput = document.getElementById("wifi-password-input");
-      const wifiPriorityInput = document.getElementById("wifi-priority-input");
-      const wifiEnabledInput = document.getElementById("wifi-enabled-input");
-      const saveWifiBtn = document.getElementById("save-wifi-btn");
-      const connectWifiBtn = document.getElementById("connect-wifi-btn");
-      const clearWifiFormBtn = document.getElementById("clear-wifi-form-btn");
-      const wifiConfigStatusEl = document.getElementById("wifi-config-status");
-      const wifiConfigTableBody = document.getElementById("wifi-config-table-body");
-      const wifiScanTableBody = document.getElementById("wifi-scan-table-body");
-      const wifiScanOptions = document.getElementById("wifi-scan-options");
-
-      const setupApSsidEl = document.getElementById("setup-ap-ssid");
-      const setupApChannelEl = document.getElementById("setup-ap-channel");
-      const wifiFallbackStatusEl = document.getElementById("wifi-fallback-status");
-      const setupApPasswordInput = document.getElementById("setup-ap-password-input");
-      const saveSetupApPasswordBtn = document.getElementById("save-setup-ap-password-btn");
-      const resetWifiBtn = document.getElementById("reset-wifi-btn");
-      const setupApStatusEl = document.getElementById("setup-ap-status");
-
-      const sensorIntervalInput = document.getElementById("sensor-interval-input");
-      const questdbIntervalInput = document.getElementById("questdb-interval-input");
-      const applyConfigBtn = document.getElementById("apply-config-btn");
-      const configStatusEl = document.getElementById("config-status");
-
-      const deviceBoardIdEl = document.getElementById("device-board-id");
-      const deviceDeploymentIdEl = document.getElementById("device-deployment-id");
-      const deviceSensorTypeEl = document.getElementById("device-sensor-type");
-      const deviceLatitudeInput = document.getElementById("device-latitude-input");
-      const deviceLongitudeInput = document.getElementById("device-longitude-input");
-      const deviceLocationNameInput = document.getElementById("device-location-name-input");
-      const applyDeviceConfigBtn = document.getElementById("apply-device-config-btn");
-      const deviceConfigStatusEl = document.getElementById("device-config-status");
-
-      const questdbStatusEl = document.getElementById("questdb-status");
-      const questdbSentEl = document.getElementById("questdb-sent");
-      const questdbErrorsEl = document.getElementById("questdb-errors");
-      const questdbSuccessRateEl = document.getElementById("questdb-success-rate");
-      const questdbLastSendEl = document.getElementById("questdb-last-send");
-      const questdbIntervalEl = document.getElementById("questdb-interval");
-      const questdbBoardIdEl = document.getElementById("questdb-board-id");
-      const questdbTableNameEl = document.getElementById("questdb-table-name");
-
-      const timeStatusEl = document.getElementById("time-status");
-      const timeUtcEl = document.getElementById("time-utc");
-      const timeLocalEl = document.getElementById("time-local");
-      const timeLastSyncEl = document.getElementById("time-last-sync");
-      const timeOffsetEl = document.getElementById("time-offset");
-
-      const loggerErrorCountEl = document.getElementById("logger-error-count");
-      const errorLogTableBody = document.getElementById("error-log-table-body");
-
-      let latestWifiConfig = null;
-      let latestWifiScan = null;
-
-      function showMessage(target, message, isSuccess) {
-        target.textContent = message;
-        target.className = isSuccess ? "status-message success" : "status-message error";
-        setTimeout(function () {
-          target.className = "status-message hidden";
-        }, 3500);
+      function byId(id) {
+        return document.getElementById(id);
       }
 
-      function formatLastOk(timestamp) {
-        if (typeof timestamp !== "number" || timestamp <= 0) {
-          return "--:--:--";
+      function showMessage(el, text, ok) {
+        el.textContent = text;
+        el.className = "status-message " + (ok ? "success" : "error");
+      }
+
+      function hideMessage(el) {
+        el.className = "status-message hidden";
+        el.textContent = "";
+      }
+
+      function fetchJson(url, options) {
+        return fetch(url, options).then(function (response) {
+          return response.json();
+        });
+      }
+
+      function setStatus(el, text, level) {
+        el.textContent = text;
+        el.className = "value " + (level || "");
+      }
+
+      function formatText(value, fallback) {
+        if (value === null || value === undefined || value === "") {
+          return fallback || "--";
         }
-        return new Date(timestamp * 1000).toLocaleTimeString();
+        return String(value);
       }
 
-      function renderData(data) {
-        debugEl.textContent = JSON.stringify(data, null, 2);
-
-        if (data && data.co2 !== null && typeof data.co2 === "number" && data.co2 > 0) {
-          co2El.textContent = data.co2.toFixed(0);
-          tempEl.textContent = typeof data.temp === "number" ? data.temp.toFixed(1) : "--";
-          rhEl.textContent = typeof data.rh === "number" ? data.rh.toFixed(1) : "--";
-          lastOkEl.textContent = formatLastOk(data.last_ok);
-          errorsEl.textContent = typeof data.errors === "number" ? String(data.errors) : "?";
-          statusEl.textContent = data.errors === 0 ? "OK" : "Con advertencias";
-          statusEl.className = data.errors === 0 ? "status-ok" : "status-warn";
-        } else {
-          co2El.textContent = "--";
-          tempEl.textContent = "--";
-          rhEl.textContent = "--";
-          lastOkEl.textContent = "--:--:--";
-          statusEl.textContent = "Esperando primera lectura";
-          statusEl.className = "status-warn";
+      function formatNumeric(value, decimals) {
+        if (typeof value !== "number" || isNaN(value)) {
+          return "--";
         }
+        return typeof decimals === "number" ? value.toFixed(decimals) : String(value);
       }
 
-      function updateData() {
-        fetch("/data")
-          .then(function (r) { return r.json(); })
-          .then(renderData)
-          .catch(function (err) {
-            statusEl.textContent = "Error de comunicacion";
-            statusEl.className = "status-error";
-            debugEl.textContent = "Error /data: " + String(err);
-          });
-      }
-
-      function translateWifiMode(mode) {
-        if (mode === "sta") return "STA";
-        if (mode === "setup_ap") return "AP setup";
-        return "Offline";
-      }
-
-      function translateWifiError(code) {
-        if (!code) return "--";
-        if (code === "wrong_password") return "Password incorrecta";
-        if (code === "no_ap_found") return "Red no encontrada";
-        if (code === "ssid_not_visible") return "SSID no visible";
-        if (code === "connect_fail") return "No se pudo conectar";
-        return code;
-      }
-
-      function renderWifi(data) {
-        const connected = !!(data && data.connected);
-        const mode = data && data.mode ? data.mode : "offline";
-
-        if (connected) {
-          wifiStatusEl.textContent = "Conectado";
-          wifiStatusEl.className = "value status-ok";
-        } else if (mode === "setup_ap") {
-          wifiStatusEl.textContent = "Modo setup";
-          wifiStatusEl.className = "value status-warn";
-        } else {
-          wifiStatusEl.textContent = "Desconectado";
-          wifiStatusEl.className = "value status-error";
-        }
-
-        wifiModeEl.textContent = translateWifiMode(mode);
-        wifiSsidEl.textContent = data && data.ssid ? data.ssid : "--";
-        wifiIpEl.textContent = data && data.ip ? data.ip : "--";
-        wifiLastSsidEl.textContent = data && data.last_connected_ssid ? data.last_connected_ssid : "--";
-        wifiQualityEl.textContent = data && data.signal_quality ? data.signal_quality : "--";
-        wifiRssiEl.textContent = data && typeof data.rssi === "number" ? String(data.rssi) : "--";
-        wifiLastErrorEl.textContent = translateWifiError(data && data.last_connection_error);
-        wifiSetupSsidEl.textContent = data && data.setup_ap_ssid ? data.setup_ap_ssid : "--";
-
-        if (mode === "setup_ap") {
-          setupBannerEl.classList.add("visible");
-          setupBannerTextEl.textContent =
-            "El nodo esta en AP setup. Conectate a " +
-            (data && data.setup_ap_ssid ? data.setup_ap_ssid : "la red del nodo") +
-            " y abre esta pagina para guardar una red WiFi valida.";
-        } else {
-          setupBannerEl.classList.remove("visible");
-        }
+      function formatTimestamp(value) {
+        return formatText(value, "--");
       }
 
       function updateWifi() {
-        fetch("/wifi")
-          .then(function (r) { return r.json(); })
-          .then(renderWifi)
-          .catch(function () {
-            wifiStatusEl.textContent = "Error";
-            wifiStatusEl.className = "value status-error";
-          });
+        return Promise.all([
+          fetchJson("/wifi"),
+          fetchJson("/operation-mode")
+        ]).then(function (results) {
+          const wifi = results[0] || {};
+          const modeData = results[1] || {};
+          const connected = !!wifi.connected;
+          setStatus(byId("wifi-status"), connected ? "Conectado" : (wifi.mode === "setup_ap" ? "Setup AP" : "Sin enlace"), connected ? "status-ok" : "status-warn");
+          byId("wifi-mode").textContent = formatText(wifi.mode);
+          byId("wifi-ssid").textContent = formatText(wifi.ssid);
+          byId("wifi-ip").textContent = formatText(wifi.ip);
+          byId("wifi-last-ssid").textContent = formatText(wifi.last_connected_ssid);
+          byId("wifi-quality").textContent = formatText(wifi.signal_quality);
+          byId("wifi-rssi").textContent = formatText(wifi.rssi);
+          byId("wifi-last-error").textContent = formatText(wifi.last_connection_error);
+          byId("operation-mode").textContent = formatText(modeData.operation_mode);
+
+          if (modeData.effective_view === "setup") {
+            window.location.href = "/setup";
+          }
+        }).catch(function (err) {
+          setStatus(byId("wifi-status"), "Error", "status-error");
+          showMessage(byId("wifi-status-msg"), "No se pudo consultar el estado WiFi: " + String(err.message || err), false);
+        });
       }
 
-      function fillWifiForm(network) {
-        wifiSsidInput.value = network.ssid || "";
-        wifiPasswordInput.value = "";
-        wifiPriorityInput.value = typeof network.priority === "number" ? network.priority : 10;
-        wifiEnabledInput.value = network.enabled ? "true" : "false";
+      function enterSetupMode() {
+        const button = byId("enter-setup-btn");
+        button.disabled = true;
+        fetchJson("/operation-mode", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ operation_mode: "setup" })
+        }).then(function () {
+          showMessage(byId("wifi-status-msg"), "Cambiando a modo setup...", true);
+          setTimeout(function () {
+            window.location.href = "/setup";
+          }, 500);
+        }).catch(function (err) {
+          showMessage(byId("wifi-status-msg"), "No se pudo entrar a setup: " + String(err.message || err), false);
+        }).finally(function () {
+          button.disabled = false;
+        });
       }
 
-      function clearWifiForm() {
-        wifiSsidInput.value = "";
-        wifiPasswordInput.value = "";
-        wifiPriorityInput.value = 10;
-        wifiEnabledInput.value = "true";
+      function updateData() {
+        return fetchJson("/data").then(function (data) {
+          byId("co2").textContent = formatNumeric(data.co2);
+          byId("temp").textContent = formatNumeric(data.temp, 2);
+          byId("rh").textContent = formatNumeric(data.rh, 2);
+          byId("last-ok").textContent = formatText(data.last_ok_reading);
+          byId("errors").textContent = formatNumeric(data.error_count);
+          const statusText = data.valid ? "Lectura valida" : "Sin lectura valida";
+          setStatus(byId("sensor-status"), statusText, data.valid ? "status-ok" : "status-warn");
+          byId("sensor-debug").textContent = JSON.stringify(data, null, 2);
+        }).catch(function () {
+          setStatus(byId("sensor-status"), "Error", "status-error");
+        });
       }
 
-      function renderWifiConfig(data) {
-        latestWifiConfig = data || null;
-
-        if (!data) {
-          wifiConfigTableBody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#f87171;">No se pudo cargar la configuracion WiFi</td></tr>';
-          return;
-        }
-
-        setupApSsidEl.textContent = data.setup_ap && data.setup_ap.ssid ? data.setup_ap.ssid : "--";
-        setupApChannelEl.textContent = data.setup_ap && data.setup_ap.channel ? String(data.setup_ap.channel) : "--";
-        wifiFallbackStatusEl.textContent =
-          data.fallback && data.fallback.auto_ap_enabled ? "Activo" : "Inactivo";
-        wifiFallbackStatusEl.className =
-          "value " + (data.fallback && data.fallback.auto_ap_enabled ? "status-ok" : "status-warn");
-
-        const networks = data.known_networks || [];
-        if (!networks.length) {
-          wifiConfigTableBody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#9ca3af;">Sin redes guardadas</td></tr>';
-          return;
-        }
-
-        let rows = "";
-        for (let i = 0; i < networks.length; i += 1) {
-          const net = networks[i];
-          rows += "<tr>";
-          rows += '<td class="mono">' + net.ssid + "</td>";
-          rows += "<td>" + net.priority + "</td>";
-          rows += "<td>" + (net.enabled ? "Si" : "No") + "</td>";
-          rows += '<td><button class="btn btn-muted" type="button" onclick="editWifiNetwork(' + i + ')">Editar</button> ';
-          rows += '<button class="btn btn-secondary" type="button" onclick="connectStoredWifi(\'' + encodeURIComponent(net.ssid) + '\')">Conectar</button> ';
-          rows += '<button class="btn btn-danger" type="button" onclick="deleteStoredWifi(\'' + encodeURIComponent(net.ssid) + '\')">Eliminar</button></td>';
-          rows += "</tr>";
-        }
-
-        wifiConfigTableBody.innerHTML = rows;
+      function updateIntervals() {
+        return fetchJson("/config").then(function (data) {
+          if (data.sample_interval) {
+            byId("sensor-interval-input").value = String(data.sample_interval);
+          }
+          if (data.questdb_interval) {
+            byId("backend-interval-input").value = String(data.questdb_interval);
+          }
+        });
       }
 
-      function updateWifiConfig() {
-        fetch("/wifi/config")
-          .then(function (r) { return r.json(); })
-          .then(renderWifiConfig)
-          .catch(function () {
-            renderWifiConfig(null);
-          });
-      }
-
-      function updateWifiScanOptions(networks) {
-        let options = "";
-        for (let i = 0; i < networks.length; i += 1) {
-          const net = networks[i];
-          options += '<option value="' + net.ssid + '"></option>';
-        }
-        wifiScanOptions.innerHTML = options;
-      }
-
-      function getQualityClass(quality) {
-        if (quality === "Excelente") return "status-ok";
-        if (quality === "Buena") return "status-warn";
-        if (quality === "Regular") return "";
-        return "status-error";
-      }
-
-      function renderWifiScan(data) {
-        latestWifiScan = data || null;
-        if (!data) {
-          wifiScanTableBody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#f87171;">Error al escanear</td></tr>';
-          return;
-        }
-        if (data.error) {
-          wifiScanTableBody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#f87171;">' + data.error + "</td></tr>";
-          return;
-        }
-
-        const networks = data.networks || [];
-        updateWifiScanOptions(networks);
-
-        if (!networks.length) {
-          wifiScanTableBody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#9ca3af;">No se detectaron redes</td></tr>';
-          return;
-        }
-
-        let rows = "";
-        for (let i = 0; i < networks.length; i += 1) {
-          const net = networks[i];
-          rows += "<tr>";
-          rows += '<td class="mono">' + net.ssid + "</td>";
-          rows += "<td>" + net.rssi + " dBm</td>";
-          rows += '<td class="' + getQualityClass(net.signal_quality) + '">' + net.signal_quality + " (" + net.signal_percent + "%)</td>";
-          rows += "<td>" + net.security + "</td>";
-          rows += "</tr>";
-        }
-
-        wifiScanTableBody.innerHTML = rows;
-      }
-
-      function updateWifiScan() {
-        fetch("/wifi/scan")
-          .then(function (r) { return r.json(); })
-          .then(renderWifiScan)
-          .catch(function () {
-            renderWifiScan(null);
-          });
-      }
-
-      function saveWifiAndConnect() {
-        const ssid = wifiSsidInput.value.trim();
-        const password = wifiPasswordInput.value;
-        const priority = parseInt(wifiPriorityInput.value || "10", 10);
-        const enabled = wifiEnabledInput.value === "true";
-
-        if (!ssid) {
-          showMessage(wifiConfigStatusEl, "Debes ingresar un SSID.", false);
-          return;
-        }
-
-        saveWifiBtn.disabled = true;
-        fetch("/wifi/config", {
+      function saveIntervals() {
+        const btn = byId("save-intervals-btn");
+        btn.disabled = true;
+        fetchJson("/config", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            ssid: ssid,
-            password: password || null,
-            priority: priority,
-            enabled: enabled,
-          }),
-        })
-          .then(function (r) { return r.json(); })
-          .then(function (data) {
-            if (data.error) {
-              throw new Error(data.error);
-            }
-            renderWifiConfig(data.wifi);
-            return fetch("/wifi/connect", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ ssid: ssid }),
-            });
+            sample_interval: parseInt(byId("sensor-interval-input").value, 10),
+            questdb_interval: parseInt(byId("backend-interval-input").value, 10)
           })
-          .then(function (r) { return r.json(); })
-          .then(function (data) {
-            if (data.error) {
-              throw new Error(data.error);
-            }
-            renderWifi(data.wifi || data.current || {});
-            showMessage(wifiConfigStatusEl, "Red guardada. El nodo esta intentando conectar.", true);
-            updateWifi();
-            updateWifiConfig();
-          })
-          .catch(function (err) {
-            showMessage(wifiConfigStatusEl, "Error: " + String(err.message || err), false);
-          })
-          .finally(function () {
-            saveWifiBtn.disabled = false;
-          });
-      }
-
-      function connectWifiNow() {
-        const ssid = wifiSsidInput.value.trim();
-        connectWifiBtn.disabled = true;
-        fetch("/wifi/connect", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ssid: ssid || null }),
-        })
-          .then(function (r) { return r.json(); })
-          .then(function (data) {
-            if (data.error) {
-              throw new Error(data.error);
-            }
-            renderWifi(data.wifi || {});
-            showMessage(wifiConfigStatusEl, "Intento de conexion lanzado.", true);
-            updateWifiConfig();
-          })
-          .catch(function (err) {
-            showMessage(wifiConfigStatusEl, "Error: " + String(err.message || err), false);
-          })
-          .finally(function () {
-            connectWifiBtn.disabled = false;
-          });
-      }
-
-      function connectStoredWifi(encodedSsid) {
-        const ssid = decodeURIComponent(encodedSsid);
-        wifiSsidInput.value = ssid;
-        connectWifiNow();
-      }
-
-      function deleteStoredWifi(encodedSsid) {
-        const ssid = decodeURIComponent(encodedSsid);
-        fetch("/wifi/config/" + encodeURIComponent(ssid), { method: "DELETE" })
-          .then(function (r) { return r.json(); })
-          .then(function (data) {
-            if (data.error) {
-              throw new Error(data.error);
-            }
-            renderWifiConfig(data.wifi);
-            showMessage(wifiConfigStatusEl, "Red eliminada: " + ssid, true);
-          })
-          .catch(function (err) {
-            showMessage(wifiConfigStatusEl, "Error: " + String(err.message || err), false);
-          });
-      }
-
-      function editWifiNetwork(index) {
-        if (!latestWifiConfig || !latestWifiConfig.known_networks || !latestWifiConfig.known_networks[index]) {
-          return;
-        }
-        fillWifiForm(latestWifiConfig.known_networks[index]);
-      }
-
-      function resetWifiState() {
-        resetWifiBtn.disabled = true;
-        fetch("/wifi/reset", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        })
-          .then(function (r) { return r.json(); })
-          .then(function (data) {
-            if (data.error) {
-              throw new Error(data.error);
-            }
-            renderWifiConfig(data.wifi);
-            renderWifi(data.current || {});
-            clearWifiForm();
-            showMessage(setupApStatusEl, "WiFi reiniciado. El nodo volvio a modo setup.", true);
-            updateWifiScan();
-          })
-          .catch(function (err) {
-            showMessage(setupApStatusEl, "Error: " + String(err.message || err), false);
-          })
-          .finally(function () {
-            resetWifiBtn.disabled = false;
-          });
-      }
-
-      function updateSetupApPassword() {
-        const password = setupApPasswordInput.value.trim();
-        if (password.length < 8) {
-          showMessage(setupApStatusEl, "La clave del AP debe tener al menos 8 caracteres.", false);
-          return;
-        }
-
-        saveSetupApPasswordBtn.disabled = true;
-        fetch("/wifi/setup-ap/password", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password: password }),
-        })
-          .then(function (r) { return r.json(); })
-          .then(function (data) {
-            if (data.error) {
-              throw new Error(data.error);
-            }
-            renderWifiConfig(data.wifi);
-            setupApPasswordInput.value = "";
-            showMessage(setupApStatusEl, "Clave del AP actualizada.", true);
-            updateWifi();
-          })
-          .catch(function (err) {
-            showMessage(setupApStatusEl, "Error: " + String(err.message || err), false);
-          })
-          .finally(function () {
-            saveSetupApPasswordBtn.disabled = false;
-          });
-      }
-
-      function renderQuestDBStats(data) {
-        if (!data) {
-          questdbStatusEl.textContent = "Error";
-          questdbStatusEl.className = "value status-error";
-          return;
-        }
-
-        if (data.enabled) {
-          questdbStatusEl.textContent = "Activo";
-          questdbStatusEl.className = "value status-ok";
-        } else {
-          questdbStatusEl.textContent = "Inactivo";
-          questdbStatusEl.className = "value status-error";
-        }
-
-        const sendCount = typeof data.send_count === "number" ? data.send_count : 0;
-        const errorCount = typeof data.error_count === "number" ? data.error_count : 0;
-        const total = sendCount + errorCount;
-
-        questdbSentEl.textContent = String(sendCount);
-        questdbErrorsEl.textContent = String(errorCount);
-        questdbLastSendEl.textContent = formatLastOk(data.last_send);
-        questdbIntervalEl.textContent = data.send_interval || "--";
-        questdbBoardIdEl.textContent = data.board_id || "--";
-        questdbTableNameEl.textContent = data.table_name || "--";
-
-        if (total > 0) {
-          const rate = (sendCount / total) * 100;
-          questdbSuccessRateEl.textContent = rate.toFixed(1) + "%";
-          questdbSuccessRateEl.className = "value " + (rate >= 95 ? "status-ok" : rate >= 80 ? "status-warn" : "status-error");
-        } else {
-          questdbSuccessRateEl.textContent = "--";
-          questdbSuccessRateEl.className = "value";
-        }
-
-        if (typeof data.send_interval === "number") {
-          questdbIntervalInput.value = String(data.send_interval);
-        }
-      }
-
-      function updateQuestDBStats() {
-        fetch("/questdb")
-          .then(function (r) { return r.json(); })
-          .then(renderQuestDBStats)
-          .catch(function () {
-            questdbStatusEl.textContent = "Error";
-            questdbStatusEl.className = "value status-error";
-          });
-      }
-
-      function loadConfigIntervals() {
-        fetch("/config")
-          .then(function (r) { return r.json(); })
-          .then(function (data) {
-            if (data.sample_interval) {
-              sensorIntervalInput.value = String(data.sample_interval);
-            }
-            if (data.questdb_interval) {
-              questdbIntervalInput.value = String(data.questdb_interval);
-            }
-          });
-      }
-
-      function applyConfig() {
-        const sampleInterval = parseInt(sensorIntervalInput.value, 10);
-        const backendInterval = parseInt(questdbIntervalInput.value, 10);
-
-        applyConfigBtn.disabled = true;
-        fetch("/config", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sample_interval: sampleInterval,
-            questdb_interval: backendInterval,
-          }),
-        })
-          .then(function (r) { return r.json(); })
-          .then(function (data) {
-            if (data.error) {
-              throw new Error(data.error);
-            }
-            showMessage(configStatusEl, "Intervalos guardados.", true);
-            updateQuestDBStats();
-          })
-          .catch(function (err) {
-            showMessage(configStatusEl, "Error: " + String(err.message || err), false);
-          })
-          .finally(function () {
-            applyConfigBtn.disabled = false;
-          });
-      }
-
-      function renderDeviceConfig(data) {
-        if (!data) {
-          return;
-        }
-        deviceBoardIdEl.textContent = data.board_id || "--";
-        deviceDeploymentIdEl.textContent = data.deployment_id || "--";
-        deviceSensorTypeEl.textContent = data.sensor_type || "--";
-        deviceLatitudeInput.value = typeof data.latitude === "number" ? data.latitude : "";
-        deviceLongitudeInput.value = typeof data.longitude === "number" ? data.longitude : "";
-        deviceLocationNameInput.value = data.location_name || "";
+        }).then(function (data) {
+          if (data.error) {
+            throw new Error(data.error);
+          }
+          showMessage(byId("interval-status"), "Intervalos guardados.", true);
+          updateQuestDB();
+        }).catch(function (err) {
+          showMessage(byId("interval-status"), "Error guardando intervalos: " + String(err.message || err), false);
+        }).finally(function () {
+          btn.disabled = false;
+        });
       }
 
       function updateDeviceConfig() {
-        fetch("/device/config")
-          .then(function (r) { return r.json(); })
-          .then(renderDeviceConfig);
+        return fetchJson("/device/config").then(function (data) {
+          byId("device-board-id").textContent = formatText(data.board_id);
+          byId("device-deployment-id").textContent = formatText(data.deployment_id);
+          byId("device-sensor-type").textContent = formatText(data.sensor_type);
+          byId("device-latitude-input").value = typeof data.latitude === "number" ? String(data.latitude) : "";
+          byId("device-longitude-input").value = typeof data.longitude === "number" ? String(data.longitude) : "";
+          byId("device-location-input").value = data.location_name || "";
+        });
       }
 
-      function applyDeviceConfig() {
-        const latitude = parseFloat(deviceLatitudeInput.value);
-        const longitude = parseFloat(deviceLongitudeInput.value);
-        const locationName = deviceLocationNameInput.value.trim();
-
+      function saveDeviceConfig() {
+        const latitude = parseFloat(byId("device-latitude-input").value);
+        const longitude = parseFloat(byId("device-longitude-input").value);
         if (isNaN(latitude) || isNaN(longitude)) {
-          showMessage(deviceConfigStatusEl, "Latitud y longitud son obligatorias.", false);
+          showMessage(byId("device-status"), "Latitud y longitud son obligatorias.", false);
           return;
         }
 
-        applyDeviceConfigBtn.disabled = true;
-        fetch("/device/config", {
+        const btn = byId("save-device-btn");
+        btn.disabled = true;
+        fetchJson("/device/config", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             latitude: latitude,
             longitude: longitude,
-            location_name: locationName,
-          }),
-        })
-          .then(function (r) { return r.json(); })
-          .then(function (data) {
-            if (data.error) {
-              throw new Error(data.error);
-            }
-            showMessage(deviceConfigStatusEl, "Nuevo deployment creado: " + data.deployment_id, true);
-            updateDeviceConfig();
+            location_name: byId("device-location-input").value.trim()
           })
-          .catch(function (err) {
-            showMessage(deviceConfigStatusEl, "Error: " + String(err.message || err), false);
-          })
-          .finally(function () {
-            applyDeviceConfigBtn.disabled = false;
-          });
+        }).then(function (data) {
+          if (data.error) {
+            throw new Error(data.error);
+          }
+          showMessage(byId("device-status"), "Deployment creado: " + data.deployment_id, true);
+          updateDeviceConfig();
+        }).catch(function (err) {
+          showMessage(byId("device-status"), "Error creando deployment: " + String(err.message || err), false);
+        }).finally(function () {
+          btn.disabled = false;
+        });
       }
 
-      function renderTimeStatus(data) {
-        if (!data) {
+      function updateQuestDB() {
+        return fetchJson("/questdb").then(function (data) {
+          const enabled = !!data.enabled;
+          setStatus(byId("backend-status"), enabled ? "Activo" : "Inactivo", enabled ? "status-ok" : "status-warn");
+          const sent = typeof data.send_count === "number" ? data.send_count : 0;
+          const errors = typeof data.error_count === "number" ? data.error_count : 0;
+          const total = sent + errors;
+          byId("backend-sent").textContent = String(sent);
+          byId("backend-errors").textContent = String(errors);
+          byId("backend-last-send").textContent = formatText(data.last_send);
+          byId("backend-interval").textContent = formatText(data.send_interval);
+          byId("backend-table").textContent = formatText(data.table_name);
+          if (total > 0) {
+            const rate = (sent / total) * 100;
+            setStatus(byId("backend-success"), rate.toFixed(1) + "%", rate >= 95 ? "status-ok" : (rate >= 80 ? "status-warn" : "status-error"));
+          } else {
+            byId("backend-success").textContent = "--";
+            byId("backend-success").className = "value";
+          }
+        }).catch(function () {
+          setStatus(byId("backend-status"), "Error", "status-error");
+        });
+      }
+
+      function renderPendingSamples(samples) {
+        const body = byId("cloud-pending-table-body");
+        if (!samples || !samples.length) {
+          body.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#94a3b8;">Sin backlog local</td></tr>';
           return;
         }
-        timeStatusEl.textContent = data.ntp_synced ? "Sincronizado" : "Pendiente";
-        timeStatusEl.className = "value " + (data.ntp_synced ? "status-ok" : "status-warn");
-        timeUtcEl.textContent = data.utc_iso || "--";
-        timeLocalEl.textContent = data.local_iso || "--";
-        timeLastSyncEl.textContent = data.last_sync_iso || "--";
-        timeOffsetEl.textContent = typeof data.utc_offset_hours === "number" ? String(data.utc_offset_hours) : "--";
-      }
-
-      function updateTimeStatus() {
-        fetch("/time")
-          .then(function (r) { return r.json(); })
-          .then(renderTimeStatus);
-      }
-
-      function renderErrorLogs(data) {
-        const logs = data && data.errors ? data.errors : [];
-        loggerErrorCountEl.textContent = String(logs.length);
-
-        if (!logs.length) {
-          errorLogTableBody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#9ca3af;">Sin errores registrados</td></tr>';
-          return;
-        }
-
         let rows = "";
-        for (let i = 0; i < logs.length; i += 1) {
-          const log = logs[i];
+        for (let i = 0; i < samples.length; i += 1) {
+          const sample = samples[i];
           rows += "<tr>";
-          rows += "<td>" + (log.timestamp || "--") + "</td>";
-          rows += "<td class=\"mono\">" + (log.module || "--") + "</td>";
-          rows += "<td>" + (log.message || "--") + "</td>";
+          rows += '<td class="mono">' + formatText(sample.timestamp) + "</td>";
+          rows += "<td>" + formatText(sample.co2) + "</td>";
+          rows += "<td>" + formatText(sample.temp) + "</td>";
+          rows += "<td>" + formatText(sample.rh) + "</td>";
+          rows += "<td>" + formatText(sample.errors) + "</td>";
           rows += "</tr>";
         }
+        body.innerHTML = rows;
+      }
 
-        errorLogTableBody.innerHTML = rows;
+      function updateCloud() {
+        return fetchJson("/cloud").then(function (data) {
+          const enabled = !!data.cloud_upload_enabled;
+          setStatus(byId("cloud-enabled"), enabled ? "Habilitada" : "Deshabilitada", enabled ? "status-ok" : "status-warn");
+          byId("cloud-pending-count").textContent = String(data.pending_sample_count || 0);
+          byId("zero-co2").textContent = String(data.zero_co2_count || 0);
+          byId("zero-temp").textContent = String(data.zero_temp_count || 0);
+          byId("zero-rh").textContent = String(data.zero_rh_count || 0);
+          byId("error-samples").textContent = String(data.error_sample_count || 0);
+          renderPendingSamples(data.pending_samples || []);
+        }).catch(function () {
+          setStatus(byId("cloud-enabled"), "Error", "status-error");
+        });
+      }
+
+      function setCloud(enabled) {
+        const btn = enabled ? byId("enable-cloud-btn") : byId("disable-cloud-btn");
+        btn.disabled = true;
+        fetchJson("/cloud/config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cloud_upload_enabled: enabled })
+        }).then(function (data) {
+          if (data.error) {
+            throw new Error(data.error);
+          }
+          showMessage(byId("cloud-status-msg"), enabled ? "Subida a la nube habilitada." : "Subida a la nube deshabilitada.", true);
+          updateCloud();
+          updateQuestDB();
+        }).catch(function (err) {
+          showMessage(byId("cloud-status-msg"), "Error actualizando nube: " + String(err.message || err), false);
+        }).finally(function () {
+          btn.disabled = false;
+        });
+      }
+
+      function clearCloud() {
+        const btn = byId("clear-cloud-btn");
+        btn.disabled = true;
+        fetchJson("/cloud/pending/clear", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" }
+        }).then(function (data) {
+          if (data.error) {
+            throw new Error(data.error);
+          }
+          showMessage(byId("cloud-status-msg"), "Backlog local limpiado.", true);
+          updateCloud();
+        }).catch(function (err) {
+          showMessage(byId("cloud-status-msg"), "Error limpiando backlog: " + String(err.message || err), false);
+        }).finally(function () {
+          btn.disabled = false;
+        });
+      }
+
+      function updateTime() {
+        return fetchJson("/time").then(function (data) {
+          setStatus(byId("time-status"), data.ntp_synced ? "Sincronizado" : "Pendiente", data.ntp_synced ? "status-ok" : "status-warn");
+          byId("time-utc").textContent = formatText(data.utc_iso);
+          byId("time-local").textContent = formatText(data.local_iso);
+          byId("time-last-sync").textContent = formatText(data.last_sync_iso);
+          byId("time-offset").textContent = formatText(data.utc_offset_hours);
+        });
       }
 
       function updateLogger() {
-        fetch("/logger")
-          .then(function (r) { return r.json(); })
-          .then(renderErrorLogs)
-          .catch(function () {
-            errorLogTableBody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#f87171;">Error de comunicacion</td></tr>';
-          });
+        return fetchJson("/logger").then(function (data) {
+          const logs = data && data.errors ? data.errors : [];
+          byId("logger-count").textContent = String(logs.length);
+          const body = byId("logger-table-body");
+          if (!logs.length) {
+            body.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#94a3b8;">Sin errores registrados</td></tr>';
+            return;
+          }
+
+          let rows = "";
+          for (let i = 0; i < logs.length; i += 1) {
+            const log = logs[i];
+            rows += "<tr>";
+            rows += "<td>" + formatText(log.timestamp) + "</td>";
+            rows += '<td class="mono">' + formatText(log.module) + "</td>";
+            rows += "<td>" + formatText(log.message) + "</td>";
+            rows += "</tr>";
+          }
+          body.innerHTML = rows;
+        }).catch(function () {
+          byId("logger-table-body").innerHTML = '<tr><td colspan="3" style="text-align:center; color:#f87171;">Error de comunicacion</td></tr>';
+        });
       }
 
-      saveWifiBtn.addEventListener("click", saveWifiAndConnect);
-      connectWifiBtn.addEventListener("click", connectWifiNow);
-      clearWifiFormBtn.addEventListener("click", clearWifiForm);
-      saveSetupApPasswordBtn.addEventListener("click", updateSetupApPassword);
-      resetWifiBtn.addEventListener("click", resetWifiState);
-      applyConfigBtn.addEventListener("click", applyConfig);
-      applyDeviceConfigBtn.addEventListener("click", applyDeviceConfig);
+      function refreshAll() {
+        hideMessage(byId("wifi-status-msg"));
+        Promise.all([
+          updateWifi(),
+          updateData(),
+          updateIntervals(),
+          updateDeviceConfig(),
+          updateQuestDB(),
+          updateCloud(),
+          updateTime(),
+          updateLogger()
+        ]).catch(function () {});
+      }
 
-      updateData();
-      updateWifi();
-      updateWifiConfig();
-      updateWifiScan();
-      updateQuestDBStats();
-      loadConfigIntervals();
-      updateDeviceConfig();
-      updateTimeStatus();
-      updateLogger();
+      function startPolling() {
+        if (pollTimer) {
+          clearInterval(pollTimer);
+        }
+        pollTimer = setInterval(refreshAll, POLL_MS);
+      }
 
-      setInterval(updateData, 5000);
-      setInterval(updateWifi, 12000);
-      setInterval(updateWifiConfig, 15000);
-      setInterval(updateWifiScan, 30000);
-      setInterval(updateQuestDBStats, 10000);
-      setInterval(updateTimeStatus, 5000);
-      setInterval(updateLogger, 10000);
+      byId("reload-wifi-btn").addEventListener("click", updateWifi);
+      byId("enter-setup-btn").addEventListener("click", enterSetupMode);
+      byId("save-intervals-btn").addEventListener("click", saveIntervals);
+      byId("save-device-btn").addEventListener("click", saveDeviceConfig);
+      byId("enable-cloud-btn").addEventListener("click", function () { setCloud(true); });
+      byId("disable-cloud-btn").addEventListener("click", function () { setCloud(false); });
+      byId("clear-cloud-btn").addEventListener("click", clearCloud);
+
+      refreshAll();
+      startPolling();
     </script>
   </body>
 </html>
