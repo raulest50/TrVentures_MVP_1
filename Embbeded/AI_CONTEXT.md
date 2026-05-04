@@ -13,11 +13,11 @@
 
 Los archivos dentro de `src/` son los que se despliegan al dispositivo:
 
-- `main.py`: loop principal
-- `device_config.py`: configuracion persistente
+- `main.py`: loop principal y servidor HTTP local
+- `device_config.py`: configuracion persistente del nodo
 - `remote_questdb_service.py`: cliente HTTP del backend IoT
 - `timer_service.py`: NTP y timestamps UTC
-- `wifi.py`: conexion WiFi
+- `wifi.py`: provisioning WiFi, STA y SoftAP setup
 - `index.html`: UI local del nodo
 
 Los archivos fuera de `src/` son apoyo para escritorio o documentacion, no firmware productivo.
@@ -27,9 +27,10 @@ Los archivos fuera de `src/` son apoyo para escritorio o documentacion, no firmw
 ### Flujo del nodo
 
 1. El nodo obtiene `board_id` desde la MAC.
-2. Genera y conserva localmente `deployment_id`.
-3. Envia JSON por HTTPS a `https://api.fronteradatalabs.com`.
-4. El backend FastAPI traduce esos payloads a escrituras en QuestDB.
+2. Resuelve conectividad WiFi usando `wifi_config.json`.
+3. Si no conecta por `STA`, entra en `setup_ap`.
+4. Envia JSON por HTTPS a `https://api.fronteradatalabs.com`.
+5. El backend FastAPI traduce esos payloads a escrituras en QuestDB.
 
 ### Endpoints de ingest
 
@@ -44,6 +45,13 @@ Los archivos fuera de `src/` son apoyo para escritorio o documentacion, no firmw
 - El dashboard consume lecturas desde `https://api.fronteradatalabs.com`.
 
 ## Estado y configuracion local
+
+`wifi_config.json` guarda:
+
+- `known_networks`
+- `last_connected_ssid`
+- `setup_ap`
+- `fallback`
 
 `device_config.json` guarda, entre otros:
 
@@ -67,7 +75,8 @@ Los archivos fuera de `src/` son apoyo para escritorio o documentacion, no firmw
 - Mantener timestamps UTC usando `timer_service.get_timestamp_ns()`.
 - Preservar la logica local de `deployment_id` en la Pico.
 - No hacer que el dashboard hable directo con QuestDB ni con la Pico.
+- Mantener separados `wifi_config.json` y `device_config.json`.
 
 ## Nota importante
 
-Hay credenciales WiFi hardcodeadas en `src/wifi.py`. Eso es deuda tecnica de seguridad y debe tratarse aparte de la migracion de URLs.
+Las credenciales WiFi no deben vivir en el codigo fuente. La fuente de verdad de conectividad es `wifi_config.json`.

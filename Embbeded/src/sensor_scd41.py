@@ -4,7 +4,7 @@ from scd4x import SCD4X
 
 # Intervalo entre lecturas "lógicas" (tu dashboard)
 # Se carga desde device_config.json al iniciar (ver main.py)
-SAMPLE_INTERVAL = 300       # 5 minutos por defecto (configurable en tiempo de ejecución)
+SAMPLE_INTERVAL = 20       # 20 segundos por defecto (configurable en tiempo de ejecución)
 
 # Ventana de warm-up durante la cual ignoramos errores del sensor
 WARMUP_SECONDS = 30        # ajustable según veas
@@ -12,13 +12,13 @@ WARMUP_SECONDS = 30        # ajustable según veas
 # Estado global interno del módulo
 _i2c = None
 _scd = None
-_last_sample = 0
+_last_sample = -999999  # Valor negativo para forzar lectura inmediata en el primer ciclo
 START_TIME = timer_service.get_current_epoch_utc()
 
 latest_readings = {
-    "co2": 0,
-    "temp": 0.0,
-    "rh": 0.0,
+    "co2": None,      # null hasta que haya lectura válida
+    "temp": None,     # null hasta que haya lectura válida
+    "rh": None,       # null hasta que haya lectura válida
     "last_ok": 0,
     "errors": 0,
     "sample_interval": SAMPLE_INTERVAL,
@@ -44,7 +44,8 @@ def init_sensor():
     time.sleep(10)
 
     START_TIME = timer_service.get_current_epoch_utc()
-    _last_sample = 0
+    # Mantener _last_sample negativo para forzar lectura inmediata en el próximo ciclo
+    # No resetear a 0 aquí
 
 
 def set_sample_interval(seconds):

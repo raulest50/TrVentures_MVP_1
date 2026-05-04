@@ -1,0 +1,32 @@
+metadata:
+  title: Frontera DataLabs Node Wiring
+  description: Functional wiring for Raspberry Pi Pico 2 W and SCD41 breakout
+
+connectors:
+  PICO:
+    type: Raspberry Pi Pico 2 W
+    subtype: board edge header
+    pincount: 4
+    pinlabels: [3V3(OUT), GP0, GND, GP1]
+    notes: "Firmware truth: SDA=GP0, SCL=GP1"
+
+  SCD41:
+    type: SCD41 breakout
+    subtype: 4-pin I2C header
+    pincount: 4
+    pinlabels: [VCC, SDA, GND, SCL]
+    notes: "Physical pin names follow breakout silkscreen"
+
+cables:
+  W_PWR_SIG:
+    category: bundle
+    wirecount: 4
+    gauge: 26 AWG
+    colors: [RD, OG, BK, BU]
+    wirelabels: [3V3, SDA, GND, SCL]
+
+connections:
+  -
+    - PICO: [1,2,3,4]
+    - W_PWR_SIG: [1,2,3,4]
+    - SCD41: [1,2,3,4]

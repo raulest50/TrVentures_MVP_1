@@ -16,8 +16,8 @@ DEFAULT_CONFIG = {
     "longitude": 0.0,
     "sensor_type": "SCD41",
     "location_name": "",
-    "sample_interval": 300,
-    "questdb_interval": 1200,
+    "sample_interval": 20,         # 20 segundos para lecturas rápidas del sensor
+    "questdb_interval": 1200,      # 20 minutos para envío al backend (no saturar)
     "device_registered": False,
     "api_base_url": "https://api.fronteradatalabs.com",
 }

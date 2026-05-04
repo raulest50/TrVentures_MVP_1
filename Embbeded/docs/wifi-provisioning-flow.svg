@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="760" viewBox="0 0 1280 760" role="img" aria-labelledby="title desc">
+  <title id="title">Flujo de estados del nodo IoT con provisioning WiFi</title>
+  <desc id="desc">Diagrama de estados del nodo desde boot hasta modo operativo, incluyendo fallback a SoftAP setup y reset WiFi.</desc>
+  <defs>
+    <style>
+      .bg { fill: #0f172a; }
+      .title { fill: #e5e7eb; font: 700 30px 'Segoe UI', Arial, sans-serif; }
+      .subtitle { fill: #94a3b8; font: 400 16px 'Segoe UI', Arial, sans-serif; }
+      .box { fill: #111827; stroke: #334155; stroke-width: 2; rx: 18; ry: 18; }
+      .box-oper { fill: #052e16; stroke: #22c55e; }
+      .box-setup { fill: #3b2f0b; stroke: #fbbf24; }
+      .box-warn { fill: #3f1d1d; stroke: #f87171; }
+      .label { fill: #e5e7eb; font: 700 18px 'Segoe UI', Arial, sans-serif; }
+      .small { fill: #cbd5e1; font: 400 14px 'Segoe UI', Arial, sans-serif; }
+      .arrow { stroke: #94a3b8; stroke-width: 3; fill: none; marker-end: url(#arrowhead); }
+      .arrow-warn { stroke: #f87171; stroke-width: 3; fill: none; marker-end: url(#arrowhead-warn); }
+      .arrow-setup { stroke: #fbbf24; stroke-width: 3; fill: none; marker-end: url(#arrowhead-setup); }
+      .edge-text { fill: #cbd5e1; font: 600 13px 'Segoe UI', Arial, sans-serif; }
+      .legend-title { fill: #e5e7eb; font: 700 16px 'Segoe UI', Arial, sans-serif; }
+      .legend-text { fill: #cbd5e1; font: 400 13px 'Segoe UI', Arial, sans-serif; }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="8" refX="8" refY="4" orient="auto">
+      <polygon points="0 0, 10 4, 0 8" fill="#94a3b8" />
+    </marker>
+    <marker id="arrowhead-warn" markerWidth="10" markerHeight="8" refX="8" refY="4" orient="auto">
+      <polygon points="0 0, 10 4, 0 8" fill="#f87171" />
+    </marker>
+    <marker id="arrowhead-setup" markerWidth="10" markerHeight="8" refX="8" refY="4" orient="auto">
+      <polygon points="0 0, 10 4, 0 8" fill="#fbbf24" />
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1280" height="760" />
+  <text class="title" x="60" y="58">Provisioning WiFi y flujo operativo del nodo Pico W2</text>
+  <text class="subtitle" x="60" y="86">Primero se resuelve conectividad. Luego el nodo entra en modo operativo local y, si tiene internet, sincroniza con backend.</text>
+
+  <rect class="box" x="80" y="140" width="180" height="90" />
+  <text class="label" x="145" y="178">Boot</text>
+  <text class="small" x="113" y="205">boot.py + main.py</text>
+
+  <rect class="box" x="330" y="140" width="230" height="90" />
+  <text class="label" x="367" y="178">Carga de wifi_config.json</text>
+  <text class="small" x="375" y="205">o creacion con defaults</text>
+
+  <rect class="box" x="650" y="140" width="240" height="90" />
+  <text class="label" x="687" y="178">Intento STA con redes guardadas</text>
+  <text class="small" x="710" y="205">prioridad + last_connected_ssid</text>
+
+  <rect class="box-oper" x="980" y="140" width="190" height="90" />
+  <text class="label" x="1018" y="178">Conectado por STA</text>
+  <text class="small" x="1007" y="205">SSID del usuario + IP local</text>
+
+  <rect class="box-oper" x="980" y="300" width="190" height="90" />
+  <text class="label" x="1010" y="338">Registro / sync backend</text>
+  <text class="small" x="1005" y="365">NTP + API + deployment</text>
+
+  <rect class="box-oper" x="980" y="470" width="190" height="100" />
+  <text class="label" x="1027" y="512">Modo operativo</text>
+  <text class="small" x="1010" y="539">UI local + sensor + envio API</text>
+
+  <rect class="box-warn" x="650" y="310" width="210" height="90" />
+  <text class="label" x="700" y="348">Fallo de conexion</text>
+  <text class="small" x="688" y="375">sin red valida o password errada</text>
+
+  <rect class="box-setup" x="350" y="470" width="220" height="100" />
+  <text class="label" x="403" y="510">SoftAP setup</text>
+  <text class="small" x="374" y="538">FDL-Setup-XXXXXX + 192.168.4.1</text>
+
+  <rect class="box-setup" x="80" y="470" width="200" height="100" />
+  <text class="label" x="100" y="510">Usuario guarda red WiFi</text>
+  <text class="small" x="124" y="538">desde index.html local</text>
+
+  <rect class="box" x="350" y="640" width="220" height="70" />
+  <text class="label" x="396" y="683">Reintento STA</text>
+
+  <rect class="box-warn" x="80" y="640" width="200" height="70" />
+  <text class="label" x="126" y="683">Reset WiFi</text>
+
+  <path class="arrow" d="M260 185 H330" />
+  <path class="arrow" d="M560 185 H650" />
+  <path class="arrow" d="M890 185 H980" />
+  <path class="arrow" d="M1075 230 V300" />
+  <path class="arrow" d="M1075 390 V470" />
+
+  <path class="arrow-warn" d="M770 230 V310" />
+  <path class="arrow-setup" d="M650 355 C560 355, 520 410, 460 470" />
+  <path class="arrow-setup" d="M280 520 H350" />
+  <path class="arrow-setup" d="M460 570 V640" />
+  <path class="arrow" d="M570 675 C740 675, 860 620, 980 540" />
+  <path class="arrow-warn" d="M180 640 V570" />
+  <path class="arrow-setup" d="M280 675 H350" />
+  <path class="arrow-warn" d="M980 520 C860 520, 730 520, 570 520" />
+
+  <text class="edge-text" x="917" y="170">conexion exitosa</text>
+  <text class="edge-text" x="801" y="285">no conecta</text>
+  <text class="edge-text" x="580" y="430">fallback automatico</text>
+  <text class="edge-text" x="294" y="505">guardar red</text>
+  <text class="edge-text" x="596" y="650">si conecta</text>
+  <text class="edge-text" x="705" y="500">pierde conectividad</text>
+
+  <text class="legend-title" x="60" y="730">Lectura rapida:</text>
+  <text class="legend-text" x="175" y="730">verde = modo operativo, amarillo = setup/provisioning, rojo = falla o recuperacion manual.</text>
+</svg>
