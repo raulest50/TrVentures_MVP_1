@@ -85,6 +85,10 @@
         font-size: 0.82rem;
       }
 
+      .lock-state {
+        margin-top: 0.8rem;
+      }
+
       .input-group {
         display: flex;
         flex-wrap: wrap;
@@ -312,12 +316,14 @@
           <input id="device-longitude-input" type="number" step="0.000001" />
         </div>
         <div class="input-group">
-          <label for="device-location-input">Nombre lugar</label>
-          <input id="device-location-input" type="text" placeholder="Opcional" />
+          <label for="device-location-input">Nombre del lugar *</label>
+          <input id="device-location-input" type="text" placeholder="unal medellin - lab photonics 109" />
         </div>
 
+        <p class="metric lock-state">Creacion: <span id="deployment-lock-state" class="value">Bloqueada</span></p>
         <div class="btn-row">
-          <button id="save-device-btn" class="btn">Crear nuevo deployment</button>
+          <button id="deployment-lock-btn" class="btn btn-muted">Desbloquear creacion</button>
+          <button id="save-device-btn" class="btn" disabled>Crear nuevo deployment</button>
         </div>
         <div id="device-status" class="status-message hidden"></div>
       </div>
@@ -397,6 +403,12 @@
       let slowPollTimer = null;
       let configPollTimer = null;
       let deploymentFormDirty = false;
+      let deploymentUnlocked = false;
+      let deploymentTouched = {
+        latitude: false,
+        longitude: false,
+        location: false
+      };
       let redirectingToSetup = false;
 
       function byId(id) {
@@ -482,6 +494,118 @@
           return;
         }
         input.value = value;
+      }
+
+      function resetDeploymentTouched() {
+        deploymentTouched = {
+          latitude: false,
+          longitude: false,
+          location: false
+        };
+      }
+
+      function markDeploymentFieldTouched(field) {
+        deploymentFormDirty = true;
+        deploymentTouched[field] = true;
+        updateDeploymentActionState();
+        const validation = validateDeploymentDraft();
+        if (deploymentUnlocked && hasTouchedAllDeploymentFields() && validation.ok) {
+          hideMessage(byId("device-status"));
+        }
+      }
+
+      function hasTouchedAllDeploymentFields() {
+        return deploymentTouched.latitude && deploymentTouched.longitude && deploymentTouched.location;
+      }
+
+      function getDeploymentDraft() {
+        return {
+          latitudeText: byId("device-latitude-input").value.trim(),
+          longitudeText: byId("device-longitude-input").value.trim(),
+          locationName: byId("device-location-input").value.trim()
+        };
+      }
+
+      function validateDeploymentDraft() {
+        const draft = getDeploymentDraft();
+        if (!draft.latitudeText || !draft.longitudeText || !draft.locationName) {
+          return {
+            ok: false,
+            message: "Nombre del lugar, latitud y longitud son obligatorios.",
+            draft: draft
+          };
+        }
+
+        const latitude = Number(draft.latitudeText);
+        const longitude = Number(draft.longitudeText);
+        if (!isFinite(latitude) || latitude < -90 || latitude > 90) {
+          return {
+            ok: false,
+            message: "La latitud debe estar entre -90 y 90.",
+            draft: draft
+          };
+        }
+        if (!isFinite(longitude) || longitude < -180 || longitude > 180) {
+          return {
+            ok: false,
+            message: "La longitud debe estar entre -180 y 180.",
+            draft: draft
+          };
+        }
+
+        draft.latitude = latitude;
+        draft.longitude = longitude;
+        return {
+          ok: true,
+          message: "",
+          draft: draft
+        };
+      }
+
+      function updateDeploymentActionState() {
+        const saveButton = byId("save-device-btn");
+        const lockButton = byId("deployment-lock-btn");
+        const lockState = byId("deployment-lock-state");
+        if (!saveButton || !lockButton || !lockState) {
+          return;
+        }
+
+        const validation = validateDeploymentDraft();
+        const touchedAll = hasTouchedAllDeploymentFields();
+        const ready = deploymentUnlocked && touchedAll && validation.ok;
+        saveButton.disabled = !ready || saveButton.classList.contains("loading");
+        if (!deploymentUnlocked) {
+          saveButton.title = "Desbloquea la creacion antes de continuar.";
+        } else if (!touchedAll) {
+          saveButton.title = "Edita nombre del lugar, latitud y longitud.";
+        } else {
+          saveButton.title = validation.message;
+        }
+
+        lockButton.textContent = deploymentUnlocked ? "Bloquear creacion" : "Desbloquear creacion";
+        lockButton.className = deploymentUnlocked ? "btn btn-danger" : "btn btn-muted";
+        lockState.textContent = deploymentUnlocked ? "Desbloqueada" : "Bloqueada";
+        lockState.className = "value " + (deploymentUnlocked ? "status-warn" : "");
+      }
+
+      function toggleDeploymentLock() {
+        deploymentUnlocked = !deploymentUnlocked;
+        updateDeploymentActionState();
+        if (!deploymentUnlocked) {
+          hideMessage(byId("device-status"));
+          return;
+        }
+
+        const validation = validateDeploymentDraft();
+        if (!hasTouchedAllDeploymentFields()) {
+          showMessage(byId("device-status"), "Edita nombre del lugar, latitud y longitud antes de crear.", false);
+          return;
+        }
+        if (!validation.ok) {
+          showMessage(byId("device-status"), validation.message, false);
+          return;
+        }
+        hideMessage(byId("device-status"));
       }
 
       function stopPolling() {
@@ -699,15 +823,37 @@
               typeof data.longitude === "number" ? String(data.longitude) : ""
             );
             setInputValueIfPristine("device-location-input", data.location_name || "");
+            updateDeploymentActionState();
           })
           .catch(function () {});
       }
 
       function saveDeviceConfig() {
-        const latitude = parseFloat(byId("device-latitude-input").value);
-        const longitude = parseFloat(byId("device-longitude-input").value);
-        if (isNaN(latitude) || isNaN(longitude)) {
-          showMessage(byId("device-status"), "Latitud y longitud son obligatorias.", false);
+        const validation = validateDeploymentDraft();
+        if (!deploymentUnlocked) {
+          showMessage(byId("device-status"), "Desbloquea la creacion del deployment antes de continuar.", false);
+          return Promise.resolve();
+        }
+        if (!hasTouchedAllDeploymentFields()) {
+          showMessage(byId("device-status"), "Edita nombre del lugar, latitud y longitud antes de crear.", false);
+          return Promise.resolve();
+        }
+        if (!validation.ok) {
+          showMessage(byId("device-status"), validation.message, false);
+          return Promise.resolve();
+        }
+
+        const draft = validation.draft;
+        const boardId = byId("device-board-id").textContent || "--";
+        const summary = [
+          "Crear nuevo deployment?",
+          "",
+          "Board: " + boardId,
+          "Lugar: " + draft.locationName,
+          "Latitud: " + draft.latitude,
+          "Longitud: " + draft.longitude
+        ].join("\n");
+        if (!window.confirm(summary)) {
           return Promise.resolve();
         }
 
@@ -717,13 +863,15 @@
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              latitude: latitude,
-              longitude: longitude,
-              location_name: byId("device-location-input").value.trim()
+              latitude: draft.latitude,
+              longitude: draft.longitude,
+              location_name: draft.locationName
             })
           }).then(function (data) {
             showMessage(byId("device-status"), "Deployment creado: " + data.deployment_id, true);
+            deploymentUnlocked = false;
             deploymentFormDirty = false;
+            resetDeploymentTouched();
             return updateDeviceConfig();
           }).catch(function (err) {
             showMessage(
@@ -732,6 +880,8 @@
               false
             );
           });
+        }).finally(function () {
+          updateDeploymentActionState();
         });
       }
 
@@ -921,14 +1071,16 @@
       byId("enter-setup-btn").addEventListener("click", enterSetupMode);
       byId("sample-now-btn").addEventListener("click", takeManualSample);
       byId("save-intervals-btn").addEventListener("click", saveIntervals);
+      byId("deployment-lock-btn").addEventListener("click", toggleDeploymentLock);
       byId("save-device-btn").addEventListener("click", saveDeviceConfig);
-      byId("device-latitude-input").addEventListener("input", function () { deploymentFormDirty = true; });
-      byId("device-longitude-input").addEventListener("input", function () { deploymentFormDirty = true; });
-      byId("device-location-input").addEventListener("input", function () { deploymentFormDirty = true; });
+      byId("device-latitude-input").addEventListener("input", function () { markDeploymentFieldTouched("latitude"); });
+      byId("device-longitude-input").addEventListener("input", function () { markDeploymentFieldTouched("longitude"); });
+      byId("device-location-input").addEventListener("input", function () { markDeploymentFieldTouched("location"); });
       byId("enable-cloud-btn").addEventListener("click", function () { setCloud(true); });
       byId("disable-cloud-btn").addEventListener("click", function () { setCloud(false); });
       byId("clear-cloud-btn").addEventListener("click", clearCloud);
 
+      updateDeploymentActionState();
       refreshInitial().catch(function () {});
       startPolling();
     </script>

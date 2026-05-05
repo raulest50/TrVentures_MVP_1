@@ -719,9 +719,27 @@ def handle_client(cl):
                     send_json(cl, "HTTP/1.1 400 Bad Request", {"error": "missing latitude or longitude"})
                     return
 
-                lat = float(body["latitude"])
-                lon = float(body["longitude"])
-                location_name = body.get("location_name", "")
+                try:
+                    lat = float(body["latitude"])
+                    lon = float(body["longitude"])
+                except (TypeError, ValueError):
+                    send_json(cl, "HTTP/1.1 400 Bad Request", {"error": "latitude and longitude must be numbers"})
+                    return
+
+                if lat != lat or lat < -90 or lat > 90:
+                    send_json(cl, "HTTP/1.1 400 Bad Request", {"error": "latitude must be between -90 and 90"})
+                    return
+                if lon != lon or lon < -180 or lon > 180:
+                    send_json(cl, "HTTP/1.1 400 Bad Request", {"error": "longitude must be between -180 and 180"})
+                    return
+
+                raw_location_name = body.get("location_name", "")
+                if raw_location_name is None:
+                    raw_location_name = ""
+                location_name = str(raw_location_name).strip()
+                if not location_name:
+                    send_json(cl, "HTTP/1.1 400 Bad Request", {"error": "location_name is required"})
+                    return
 
                 from remote_questdb_service import create_deployment
                 new_deployment_id = create_deployment(lat, lon, location_name)

@@ -1,32 +1,73 @@
 # Firmware IoT - Frontera DataLabs
 
-Firmware de produccion para un nodo ambiental basado en **Raspberry Pi Pico 2 W** y sensor **SCD41**. El codigo que realmente se copia al dispositivo vive en [`src/`](src/).
+Guia principal para preparar y operar un nodo ambiental con **Raspberry Pi Pico 2 W**, sensor **SCD41** y MicroPython. El objetivo es que una persona nueva pueda dejar un nodo midiendo sin asistencia: preparar hardware, copiar firmware, configurar WiFi, entrar a la UI local y crear un deployment.
 
-La secuencia real del sistema es:
+El firmware que se copia a la placa vive en [`src/`](src/).
 
-1. El nodo arranca y carga su configuracion local.
-2. Primero resuelve **WiFi**.
-3. Luego entra en modo operativo local.
-4. Si tiene internet, sincroniza tiempo y envia datos al backend en `https://api.fronteradatalabs.com`.
+## Que vas a lograr
 
-![Flujo de provisioning WiFi](docs/wifi-provisioning-flow.svg)
+Al terminar esta guia tendras:
 
-## Arquitectura rapida
+1. Una Pico 2 W con MicroPython instalado.
+2. El firmware copiado en la raiz del filesystem de la placa.
+3. Un nombre unico de board.
+4. Una red WiFi guardada.
+5. Acceso local a la UI del nodo en modo setup o modo STA.
+6. Un deployment con nombre, latitud y longitud.
 
-- Hardware: Raspberry Pi Pico 2 W + SCD41
-- Runtime: MicroPython
-- UI local: `index.html`, servida por la propia Pico
-- Provisioning WiFi: `wifi.py` + `wifi_config.json`
-- Configuracion del nodo: `device_config.json`
-- Ingesta remota: `https://api.fronteradatalabs.com`
-- Dashboard web: `https://dashboard.fronteradatalabs.com`
-- Consola administrativa de base de datos: `https://questdb.fronteradatalabs.com`
+## Compra y preparacion
 
-## Archivos que se copian a la Pico
+Hardware minimo:
 
-Todos los archivos dentro de `src/` deben subirse a la **raiz** del filesystem de la Pico.
+- Raspberry Pi Pico 2 W.
+- Sensor SCD41 en breakout.
+- Cable USB de datos.
+- Cables Dupont o soldadura para I2C.
+- Fuente USB estable.
+- PC con Thonny, PyCharm con soporte MicroPython, `mpremote` o una herramienta equivalente.
 
-Archivos esperados:
+Conexiones funcionales:
+
+| Senal | Pico 2 W | SCD41 breakout | Notas |
+|---|---|---|---|
+| Alimentacion 3.3V | `3V3(OUT)` | `VCC` | Alimentacion del modulo |
+| Tierra | `GND` | `GND` | Tierra comun |
+| I2C SDA | `GP0` | `SDA` | Definido en `sensor_scd41.py` |
+| I2C SCL | `GP1` | `SCL` | Definido en `sensor_scd41.py` |
+
+Tambien puedes revisar el diagrama en [`docs/hardware/wiring.svg`](docs/hardware/wiring.svg). La fuente editable vive en [`docs/hardware/wiring.yaml`](docs/hardware/wiring.yaml).
+
+## Mapa mental del nodo
+
+El nodo tiene dos modos importantes:
+
+- `setup_ap`: la Pico crea su propia red WiFi `FDL-Setup-*`. Se usa para configurar board, redes WiFi y recuperar el nodo cuando no puede conectarse.
+- `STA`: la Pico se conecta a una red WiFi existente. Es el modo normal de operacion.
+
+Direcciones utiles:
+
+- En `setup_ap`: abre `http://192.168.4.1`.
+- En `STA`: abre `http://<ip-del-nodo>`.
+- En `STA` con mDNS disponible: abre `http://<mdns_hostname>.local`.
+
+El acceso `.local` es comodo, pero depende del sistema operativo y de la red. Si no responde, usa la IP que aparece en el REPL o en el router.
+
+## Instalar MicroPython
+
+1. Ve a [micropython.org/download](https://micropython.org/download/).
+2. Busca la placa Raspberry Pi Pico 2 W y descarga el `.uf2` mas reciente.
+3. Desconecta la Pico.
+4. Manteniendo presionado `BOOTSEL`, conecta la Pico al PC por USB.
+5. Cuando aparezca como almacenamiento USB, arrastra el `.uf2` descargado.
+6. Espera a que la placa reinicie automaticamente.
+
+Resultado esperado: la Pico ya no aparece como unidad USB normal y queda lista para usar por REPL MicroPython.
+
+## Copiar el firmware
+
+Todos los archivos dentro de `src/` deben copiarse a la **raiz** del filesystem de la Pico. No los copies dentro de una carpeta `src`.
+
+Archivos esperados en la Pico:
 
 ```text
 boot.py
@@ -40,9 +81,19 @@ timer_service.py
 wifi.py
 logger.py
 index.html
+setup.html
 ```
 
-Archivos persistentes que crea o mantiene el propio nodo:
+Verificacion desde REPL:
+
+```python
+import os
+print(os.listdir())
+```
+
+Resultado esperado: el listado contiene todos los archivos anteriores en la raiz.
+
+El nodo crea o mantiene estos archivos persistentes:
 
 ```text
 wifi_config.json
@@ -50,233 +101,189 @@ device_config.json
 cloud_buffer.json
 ```
 
-## Conexion hardware
+No necesitas crearlos manualmente para un primer arranque limpio.
 
-Esta primera version documenta solo el **camino electrico funcional** del nodo:
+## Primer arranque
 
-- **Raspberry Pi Pico 2 W**
-- **Modulo / breakout SCD41**
-- bus **I2C**
-- alimentacion de **3V3**
+Reinicia la placa con una de estas opciones:
 
-No documenta todavia el fixture mecanico, separadores, soporte impreso ni accesorios externos del montaje.
-
-![Diagrama de conexion Pico 2 W + SCD41](docs/hardware/wiring.svg)
-
-Resumen de conexiones funcionales:
-
-| Señal | Pico 2 W | SCD41 breakout | Notas |
-|---|---|---|---|
-| Alimentación 3.3V | `3V3(OUT)` | `VCC` | Alimentación del módulo |
-| Tierra | `GND` | `GND` | Tierra común |
-| I2C SDA | `GP0` | `SDA` | Definido por firmware en `sensor_scd41.py` |
-| I2C SCL | `GP1` | `SCL` | Definido por firmware en `sensor_scd41.py` |
-
-Regla de precedencia para esta documentación:
-
-- para señales de bus, manda el firmware
-- para nombres físicos del breakout, manda la serigrafía visible del módulo real
-
-La fuente de verdad textual del diagrama vive en [`docs/hardware/wiring.yaml`](docs/hardware/wiring.yaml), y las notas de regeneración están en [`docs/hardware/README.md`](docs/hardware/README.md).
-
-## Primer uso
-
-### 1. Flashear MicroPython
-
-Descarga el `.uf2` mas reciente para Pico W / Pico 2 W desde:
-
-- [MicroPython for Raspberry Pi Pico](https://micropython.org/download/RPI_PICO_W/)
-
-Instalacion resumida:
-
-1. Conecta la Pico manteniendo presionado `BOOTSEL`.
-2. Aparecera como almacenamiento USB.
-3. Arrastra el archivo `.uf2`.
-4. La placa reinicia automaticamente.
-
-### 2. Copiar el firmware
-
-Sube todos los archivos de `src/` a la raiz del dispositivo usando Thonny, PyCharm o la herramienta MicroPython que prefieras.
-
-### 3. Reiniciar
-
-Puedes reiniciar con:
-
-- `Ctrl + D` desde el REPL
-- boton `RESET`
-- desconectar y reconectar USB
-
-### 4. Provisioning WiFi inicial
-
-Si la Pico **no** encuentra una red conocida, activa automaticamente su propio **SoftAP de setup**.
+- `Ctrl + D` desde el REPL.
+- Boton `RESET`, si tu placa o montaje lo tiene.
+- Desconectar y reconectar USB.
 
 Comportamiento esperado:
 
-1. El nodo crea o carga `wifi_config.json`.
-2. Si no hay redes validas o no logra conectarse, levanta una red tipo `FDL-Setup-XXXXXX`.
-   La clave inicial por defecto del AP de setup es `fdlsetup2026`.
-3. Te conectas manualmente a esa red.
-4. Abres `http://192.168.4.1`.
-5. Guardas una red WiFi valida desde la UI local.
-6. El nodo intenta conectar por `STA`.
-7. Cuando conecta, apaga el AP de setup y entra en modo operativo normal.
+1. `boot.py` prepara el arranque.
+2. `main.py` carga configuracion local.
+3. El nodo intenta conectar por WiFi.
+4. Si no tiene una red valida, activa `setup_ap`.
 
-## Flujo de estados del nodo
+Si estas mirando el REPL, deberias ver mensajes del modo WiFi actual, la IP y la URL local disponible.
 
-Estados principales:
+## Modo setup
 
-- `boot`: arranque del dispositivo
-- `sta`: conectado a una red WiFi del usuario
-- `setup_ap`: AP propio del nodo para configuracion
-- `offline`: no conectado, sin enlace util todavia
+Usa modo setup cuando el nodo es nuevo, cambio de red o no logra conectarse por `STA`.
 
-Lectura operativa del diagrama:
+1. En tu PC, abre la lista de redes WiFi.
+2. Conectate a una red con nombre `FDL-Setup-*`.
+3. Usa la clave inicial `fdlsetup2026`, salvo que ya la hayas cambiado.
+4. Abre `http://192.168.4.1`.
+5. En la UI local, revisa la identidad del nodo.
+6. Define o confirma el nombre de board.
+7. Escanea redes WiFi.
+8. Guarda una red de 2.4 GHz con su password.
+9. Deja que el nodo intente conectar.
 
-1. El nodo arranca.
-2. Carga `wifi_config.json`.
-3. Intenta conectar a redes guardadas, priorizando la ultima red conectada si esta visible.
-4. Si conecta, entra en `STA`, sincroniza tiempo, registra backend y sigue operando.
-5. Si falla, entra en `setup_ap`.
-6. Desde la UI local el usuario guarda o corrige credenciales.
-7. El nodo reintenta `STA`.
-8. Si el usuario decide limpiar redes, `Reset WiFi` borra `known_networks` y vuelve a setup.
+Resultado esperado: cuando la red guardada funciona, el nodo apaga el AP de setup y entra a `STA`.
 
-## Configuracion persistente
+## Modo STA
 
-### `wifi_config.json`
+`STA` es el modo normal. La Pico esta conectada a tu red WiFi y sirve la UI local desde esa red.
 
-Guarda solamente configuracion de conectividad:
+Para entrar:
 
-- `known_networks`
-- `last_connected_ssid`
-- `setup_ap`
-- `fallback`
+1. Mira en el REPL la IP reportada por el nodo.
+2. Abre `http://<ip-del-nodo>`.
+3. Si mDNS esta habilitado, intenta tambien `http://<mdns_hostname>.local`.
 
-Esto permite:
+Ejemplo:
 
-- tener varias redes conocidas
-- cambiar de sitio sin reflashear firmware
-- cambiar la password del AP de setup desde la UI
-- volver a setup sin tocar el codigo fuente
+```text
+http://192.168.1.42
+http://node-A1B2C3.local
+```
 
-### `device_config.json`
+En este modo puedes ver lecturas, estado del backend, backlog local, intervalos y crear un deployment.
 
-Guarda configuracion funcional del nodo:
+## Crear un deployment
 
-- `board_id`
-- `deployment_id`
-- `deployment_counter`
-- `latitude`
-- `longitude`
-- `location_name`
-- `sample_interval`
-- `questdb_interval`
-- `device_registered`
-- `api_base_url`
+Un deployment representa una instalacion fisica del nodo en un lugar concreto. Crealo solamente cuando el nodo ya esta ubicado donde va a medir.
 
-Separacion importante:
+1. Entra a la UI local en modo `STA`.
+2. Busca la tarjeta **Deployment local**.
+3. Escribe latitud.
+4. Escribe longitud.
+5. Escribe un nombre claro del lugar.
+6. Desbloquea la creacion.
+7. Presiona **Crear nuevo deployment**.
+8. Revisa el resumen y confirma.
 
-- `wifi_config.json` = conectividad
-- `device_config.json` = identidad y operacion del nodo
+Ejemplos de nombres:
 
-## Operacion normal desde la UI local
+```text
+unal medellin - lab photonics 109
+oficina principal - sala sensores
+invernadero norte - modulo 02
+```
 
-Una vez dentro de `http://<ip-del-nodo>` o `http://192.168.4.1` en modo setup, la UI local permite:
+Resultado esperado: la UI muestra el nuevo `deployment_id` y el nodo conserva ese deployment como activo.
 
-- ver estado WiFi actual
-- distinguir `STA`, `setup_ap` y `offline`
-- escanear redes cercanas
-- agregar una red WiFi nueva
-- editar prioridad y estado de redes guardadas
-- intentar conexion inmediata
-- eliminar una red guardada
-- cambiar la password del AP de setup
-- ejecutar `Reset WiFi`
-- ver lecturas del sensor
-- cambiar intervalos de muestreo y envio
-- crear un nuevo deployment local
-- habilitar o deshabilitar la subida a la nube
-- revisar hasta 10 muestras locales pendientes antes de aprobar la nube
-- limpiar el backlog local de muestras
-- ver estado de backend, tiempo y logs
+## Que hace cada archivo persistente
 
-## REPL y uso diario
+`wifi_config.json` guarda conectividad:
 
-`main.py` se ejecuta automaticamente al arrancar la placa. No hace falta lanzarlo manualmente.
+- redes conocidas;
+- ultima red conectada;
+- configuracion del AP de setup;
+- parametros de fallback.
 
-Puedes mantener el REPL abierto para:
+`device_config.json` guarda identidad y operacion:
 
-- ver logs
-- inspeccionar IP
-- revisar archivos
-- hacer soporte basico
+- `board_id`;
+- `board_name`;
+- `mdns_hostname`;
+- `deployment_id`;
+- `latitude`;
+- `longitude`;
+- `location_name`;
+- intervalos;
+- URL base del backend.
 
-Evita ejecutar repetidamente:
+`cloud_buffer.json` guarda muestras pendientes cuando la subida a nube esta deshabilitada o falla temporalmente.
 
-- `import main`
-- reseteos agresivos de sockets desde REPL
-- reinicios continuos sin esperar a que termine el arranque
+## Operacion diaria
+
+En la UI local puedes:
+
+- ver estado WiFi;
+- distinguir `STA`, `setup_ap` y `offline`;
+- cambiar a modo setup para reconfigurar redes;
+- ver lecturas del sensor;
+- cambiar intervalos de muestreo y envio;
+- crear deployments;
+- habilitar o deshabilitar subida a la nube;
+- revisar backlog local;
+- limpiar backlog;
+- revisar logs y estado del backend.
+
+Evita ejecutar repetidamente `import main` desde el REPL. Para reiniciar el firmware, usa `Ctrl + D` o reinicia la placa.
+
+## Checklist final
+
+Antes de entregar un nodo:
+
+- La Pico tiene MicroPython instalado.
+- Todos los archivos de `src/` estan en la raiz.
+- El sensor SCD41 esta conectado por I2C.
+- El nodo entra a `setup_ap` si no hay WiFi.
+- El nodo entra a `STA` con una red valida de 2.4 GHz.
+- La UI abre por IP.
+- La UI abre por `.local` si mDNS esta disponible.
+- El board name es unico y reconocible.
+- El deployment tiene nombre, latitud y longitud correctos.
+- El backend responde o el backlog local esta entendido.
 
 ## Troubleshooting rapido
 
-### No encuentra red WiFi
+### No aparece `FDL-Setup-*`
 
-- Revisa desde la UI local si el SSID aparece en el escaneo.
-- Verifica que la red sea **2.4 GHz**.
-- Si la red no esta visible, el nodo permanecera o volvera a `setup_ap`.
+1. Espera 20 a 40 segundos despues del reinicio.
+2. Revisa el REPL para confirmar si el nodo entro a `STA`.
+3. Si esta en `STA`, entra por la IP reportada.
+4. Si hay error de arranque, revisa que `setup.html`, `index.html`, `main.py` y `wifi.py` esten copiados.
 
-### Password incorrecta
+### No puedo entrar a `http://192.168.4.1`
 
-- El estado WiFi mostrara error reciente asociado a password.
-- Edita la red desde la UI local y guarda una nueva clave.
-- Lanza `Conectar ahora` para reintentar sin reiniciar.
+1. Confirma que tu PC esta conectado al AP `FDL-Setup-*`.
+2. Desactiva temporalmente VPNs que cambien rutas locales.
+3. Olvida redes `FDL-Setup-*` antiguas en Windows y reconecta.
+4. Reinicia la Pico y espera a que el AP vuelva a aparecer.
 
-### El nodo queda en `setup_ap`
+### El nodo no conecta a la red WiFi
 
-Eso significa que no pudo entrar a `STA` con las redes conocidas.
+1. Confirma que la red es 2.4 GHz.
+2. Revisa password.
+3. Desde setup, escanea redes cercanas.
+4. Elimina o corrige credenciales viejas.
+5. Usa `Reset WiFi` si el estado quedo inconsistente.
 
-Pasos recomendados:
+### `.local` no abre
 
-1. Conectate al AP del nodo.
-2. Abre `http://192.168.4.1`.
-3. Revisa las redes guardadas.
-4. Corrige o agrega una red valida.
-5. Si hay estado inconsistente, usa `Reset WiFi`.
+1. Usa primero la IP del nodo.
+2. Confirma que PC y Pico estan en la misma red.
+3. Revisa que mDNS este habilitado en la UI.
+4. En algunas redes corporativas o VLANs, `.local` puede estar bloqueado.
+
+### No hay lecturas del sensor
+
+1. Espera el primer ciclo de warm-up.
+2. Revisa `VCC`, `GND`, `SDA` y `SCL`.
+3. Confirma que `sensor_scd41.py` y `scd4x.py` estan copiados.
+4. Revisa logs desde la UI.
 
 ### El backend no responde
 
-Si el nodo tiene WiFi pero no puede hablar con `api.fronteradatalabs.com`:
+La UI local sigue funcionando aunque el backend falle. Revisa internet, DNS y alcance a `https://api.fronteradatalabs.com`. Si la nube esta deshabilitada o falla, las muestras pueden quedar en backlog local.
 
-- la UI local sigue disponible
-- el sensor sigue leyendo localmente
-- los logs mostraran errores de backend
-- revisa DNS, internet y reachability de la API
+## URLs del sistema
 
-### No aparecen lecturas del sensor
+- `https://api.fronteradatalabs.com`: backend que recibe devices, deployments y telemetria.
+- `https://dashboard.fronteradatalabs.com`: dashboard principal.
+- `https://questdb.fronteradatalabs.com`: consola administrativa de QuestDB.
 
-- espera el primer ciclo de warm-up y lectura
-- verifica cableado I2C del SCD41
-- revisa los logs de error en la UI local
-- confirma que `sensor_scd41.py` y `scd4x.py` fueron copiados correctamente
-
-### Quiero volver a configurar WiFi desde cero
-
-Sin botones fisicos, el flujo recomendado es:
-
-1. entrar a la UI local
-2. usar `Reset WiFi`
-3. dejar que el nodo vuelva a `setup_ap`
-4. conectarte al AP y guardar una red nueva
-
-## Relacion con otras URLs del sistema
-
-- `api.fronteradatalabs.com`: backend que recibe registros, deployments y telemetria
-- `dashboard.fronteradatalabs.com`: dashboard principal de consulta
-- `questdb.fronteradatalabs.com`: consola administrativa de QuestDB, no destino directo del firmware
-
-El firmware de produccion **no** debe escribir directo a QuestDB publico.
+El firmware de produccion no debe escribir directo a QuestDB publico.
 
 ## Documentacion complementaria
 
-- [`DEPLOYMENT_GUIDE.md`](DEPLOYMENT_GUIDE.md): guia corta de flash y copia de archivos
-- [`AI_CONTEXT.md`](AI_CONTEXT.md): contexto tecnico para agentes y trabajo de desarrollo
+- [`DEPLOYMENT_GUIDE.md`](DEPLOYMENT_GUIDE.md): guia corta para flashear y copiar firmware.
+- [`AI_CONTEXT.md`](AI_CONTEXT.md): contexto tecnico para agentes y desarrollo.
