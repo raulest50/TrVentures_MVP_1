@@ -396,6 +396,7 @@
       let fastPollTimer = null;
       let slowPollTimer = null;
       let configPollTimer = null;
+      let deploymentFormDirty = false;
       let redirectingToSetup = false;
 
       function byId(id) {
@@ -473,6 +474,14 @@
         return Promise.resolve()
           .then(work)
           .finally(restore);
+      }
+
+      function setInputValueIfPristine(inputId, value) {
+        const input = byId(inputId);
+        if (deploymentFormDirty || input === document.activeElement) {
+          return;
+        }
+        input.value = value;
       }
 
       function stopPolling() {
@@ -681,9 +690,15 @@
             byId("device-board-id").textContent = formatText(data.board_id);
             byId("device-deployment-id").textContent = formatText(data.deployment_id);
             byId("device-sensor-type").textContent = formatText(data.sensor_type);
-            byId("device-latitude-input").value = typeof data.latitude === "number" ? String(data.latitude) : "";
-            byId("device-longitude-input").value = typeof data.longitude === "number" ? String(data.longitude) : "";
-            byId("device-location-input").value = data.location_name || "";
+            setInputValueIfPristine(
+              "device-latitude-input",
+              typeof data.latitude === "number" ? String(data.latitude) : ""
+            );
+            setInputValueIfPristine(
+              "device-longitude-input",
+              typeof data.longitude === "number" ? String(data.longitude) : ""
+            );
+            setInputValueIfPristine("device-location-input", data.location_name || "");
           })
           .catch(function () {});
       }
@@ -708,6 +723,7 @@
             })
           }).then(function (data) {
             showMessage(byId("device-status"), "Deployment creado: " + data.deployment_id, true);
+            deploymentFormDirty = false;
             return updateDeviceConfig();
           }).catch(function (err) {
             showMessage(
@@ -906,6 +922,9 @@
       byId("sample-now-btn").addEventListener("click", takeManualSample);
       byId("save-intervals-btn").addEventListener("click", saveIntervals);
       byId("save-device-btn").addEventListener("click", saveDeviceConfig);
+      byId("device-latitude-input").addEventListener("input", function () { deploymentFormDirty = true; });
+      byId("device-longitude-input").addEventListener("input", function () { deploymentFormDirty = true; });
+      byId("device-location-input").addEventListener("input", function () { deploymentFormDirty = true; });
       byId("enable-cloud-btn").addEventListener("click", function () { setCloud(true); });
       byId("disable-cloud-btn").addEventListener("click", function () { setCloud(false); });
       byId("clear-cloud-btn").addEventListener("click", clearCloud);
