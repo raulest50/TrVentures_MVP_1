@@ -24,8 +24,40 @@
         max-width: 64rem;
       }
 
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        margin: 1rem 0 1.2rem 0;
+        background: rgba(15, 23, 42, 0.92);
+        backdrop-filter: blur(10px);
+        border: 1px solid #1f2937;
+        border-radius: 0.85rem;
+        padding: 0.9rem 1rem;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.25);
+      }
+
+      .topbar-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.7rem;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .topbar-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+      }
+
+      .topbar-meta {
+        color: #94a3b8;
+        font-size: 0.86rem;
+      }
+
       .views {
-        margin-top: 1.5rem;
+        margin-top: 1rem;
       }
 
       .view {
@@ -67,18 +99,6 @@
       .value {
         font-weight: 700;
         color: #fbbf24;
-      }
-
-      .status-ok {
-        color: #22c55e;
-      }
-
-      .status-warn {
-        color: #fbbf24;
-      }
-
-      .status-error {
-        color: #f87171;
       }
 
       .mono {
@@ -150,6 +170,14 @@
       .btn-danger {
         background: #b91c1c;
         color: #fee2e2;
+      }
+
+      .btn.loading {
+        opacity: 0.82;
+      }
+
+      .btn.loading::after {
+        content: " ...";
       }
 
       .btn:disabled {
@@ -272,6 +300,12 @@
         border-bottom: none;
       }
 
+      .inline-actions {
+        display: flex;
+        gap: 0.45rem;
+        flex-wrap: wrap;
+      }
+
       .network-pill {
         display: inline-block;
         padding: 0.18rem 0.45rem;
@@ -281,14 +315,20 @@
         font-size: 0.76rem;
       }
 
-      .link-row {
-        margin-top: 1rem;
+      .preview-box {
+        margin-top: 0.9rem;
+        padding: 0.8rem;
+        background: #020617;
+        border-radius: 0.65rem;
+        border: 1px solid #1f2937;
       }
 
-      .inline-actions {
-        display: flex;
-        gap: 0.45rem;
-        flex-wrap: wrap;
+      .transition-box {
+        margin-top: 1rem;
+        padding: 1rem;
+        border-radius: 0.75rem;
+        border: 1px solid rgba(251, 191, 36, 0.25);
+        background: rgba(251, 191, 36, 0.08);
       }
 
       @media (max-width: 900px) {
@@ -301,16 +341,32 @@
   <body>
     <h1>Frontera DataLabs WiFi Setup</h1>
     <h2>
-      Aqui puedes administrar redes guardadas, crear una nueva conexion con asistente guiado y
-      definir el nombre amigable del nodo para el AP de setup y el hostname mDNS.
+      Esta pantalla prioriza estabilidad. Aqui editas un borrador local y solo al final aplicas
+      los cambios reales del nodo con un reinicio controlado.
     </h2>
+
+    <div class="topbar">
+      <div class="topbar-row">
+        <div class="topbar-meta">
+          <span>Board ID: <span id="topbar-board-id" class="value mono">--</span></span>
+          <span style="margin-left: 1rem;">Cambios pendientes: <span id="topbar-dirty" class="value">No</span></span>
+        </div>
+        <div class="topbar-actions">
+          <button id="refresh-state-btn" class="btn btn-muted">Recargar estado</button>
+          <button id="discard-draft-btn" class="btn btn-muted">Descartar cambios</button>
+          <button id="save-draft-btn" class="btn btn-secondary">Guardar borrador</button>
+          <button id="apply-reboot-btn" class="btn">Aplicar y reiniciar</button>
+        </div>
+      </div>
+      <div id="topbar-status" class="status-message hidden"></div>
+    </div>
 
     <div class="views">
       <div id="view-home" class="view active">
         <div class="grid">
           <div class="card">
             <h3>Redes WiFi guardadas</h3>
-            <p class="small">Edita password, prioridad o estado. Tambien puedes eliminar redes que ya no uses.</p>
+            <p class="small">Estas acciones editan solo el borrador local. Nada cambia en la board hasta aplicar.</p>
             <table>
               <thead>
                 <tr>
@@ -322,7 +378,7 @@
               </thead>
               <tbody id="saved-networks-body">
                 <tr>
-                  <td colspan="4" style="text-align:center; color:#94a3b8;">Sin redes guardadas</td>
+                  <td colspan="4" style="text-align:center; color:#94a3b8;">Cargando...</td>
                 </tr>
               </tbody>
             </table>
@@ -330,16 +386,13 @@
 
           <div class="card">
             <h3>Crear nueva red</h3>
-            <p class="small">
-              Abre el asistente guiado para capturar SSID y password, probar la conexion, guardar la
-              prioridad y reiniciar la board.
-            </p>
+            <p class="small">Abre el asistente, captura SSID/password y agrega la red al borrador. La validacion real ocurre despues del reinicio.</p>
             <div class="btn-row">
               <button id="open-stepper-btn" class="btn">Abrir asistente</button>
-              <button id="refresh-scan-btn-home" class="btn btn-muted">Actualizar redes visibles</button>
+              <button id="scan-networks-btn" class="btn btn-muted">Escanear redes</button>
             </div>
 
-            <h4 class="small" style="margin-top: 1rem;">Redes visibles ahora</h4>
+            <h4 class="small" style="margin-top: 1rem;">Redes visibles</h4>
             <table>
               <thead>
                 <tr>
@@ -350,7 +403,7 @@
               </thead>
               <tbody id="visible-networks-body">
                 <tr>
-                  <td colspan="3" style="text-align:center; color:#94a3b8;">Escaneando...</td>
+                  <td colspan="3" style="text-align:center; color:#94a3b8;">Pulsa "Escanear redes" para consultar el entorno.</td>
                 </tr>
               </tbody>
             </table>
@@ -358,30 +411,33 @@
 
           <div class="card">
             <h3>Nombre del nodo y mDNS</h3>
-            <p class="metric">Board ID tecnico: <span id="identity-board-id" class="value mono">--</span></p>
-            <p class="metric">Board name: <span id="identity-board-name" class="value">--</span></p>
-            <p class="metric">Hostname mDNS: <span id="identity-mdns-hostname" class="value mono">--</span></p>
-            <p class="metric">mDNS habilitado: <span id="identity-mdns-enabled" class="value">--</span></p>
-            <p class="metric">Ultima IP local: <span id="identity-last-ip" class="value mono">--</span></p>
-            <p class="metric">Ultimo SSID STA: <span id="identity-last-ssid" class="value">--</span></p>
-            <p class="metric">SSID AP setup: <span id="identity-setup-ssid" class="value">--</span></p>
-
-            <div class="btn-row">
-              <button id="open-identity-btn" class="btn btn-secondary">Editar identidad</button>
+            <div class="input-group">
+              <label for="board-name-input">Board name</label>
+              <input id="board-name-input" type="text" placeholder="Ej. Aula Norte 01" />
+            </div>
+            <div class="input-group">
+              <label for="mdns-enabled-input">mDNS habilitado</label>
+              <select id="mdns-enabled-input">
+                <option value="true">Si</option>
+                <option value="false">No</option>
+              </select>
+            </div>
+            <div class="preview-box">
+              <p class="metric">Hostname esperado: <span id="identity-preview-mdns" class="value mono">--</span></p>
+              <p class="metric">Nuevo SSID setup: <span id="identity-preview-ssid" class="value">--</span></p>
+              <p class="metric">Ultima IP local conocida: <span id="identity-last-ip" class="value mono">--</span></p>
+              <p class="metric">Ultimo SSID STA: <span id="identity-last-ssid" class="value">--</span></p>
             </div>
           </div>
 
           <div class="card card-full">
-            <h3>Estado actual</h3>
+            <h3>Estado actual del nodo</h3>
             <p class="metric">Modo WiFi: <span id="home-wifi-mode" class="value">--</span></p>
             <p class="metric">SSID activo: <span id="home-wifi-ssid" class="value">--</span></p>
             <p class="metric">IP activa: <span id="home-wifi-ip" class="value mono">--</span></p>
             <p class="metric">Ultima red conectada: <span id="home-last-connected" class="value">--</span></p>
             <p class="metric">Modo de interfaz: <span id="home-operation-mode" class="value">setup</span></p>
-            <div class="btn-row">
-              <button id="reset-wifi-btn" class="btn btn-danger">Reset WiFi</button>
-              <button id="reload-home-btn" class="btn btn-muted">Refrescar estado</button>
-            </div>
+            <p class="small">Usa "Recargar estado" si quieres volver a consultar el estado real del nodo.</p>
           </div>
         </div>
       </div>
@@ -395,15 +451,15 @@
             </div>
             <div id="step-indicator-2" class="step">
               <div class="step-circle">2</div>
-              <div class="step-title">Test conexion</div>
+              <div class="step-title">Revision local</div>
             </div>
             <div id="step-indicator-3" class="step">
               <div class="step-circle">3</div>
-              <div class="step-title">Guardar y prioridad</div>
+              <div class="step-title">Prioridad</div>
             </div>
             <div id="step-indicator-4" class="step">
               <div class="step-circle">4</div>
-              <div class="step-title">Reiniciar board</div>
+              <div class="step-title">Agregar al borrador</div>
             </div>
           </div>
 
@@ -416,30 +472,29 @@
             </div>
             <div class="input-group">
               <label for="password-input">Password</label>
-              <input id="password-input" type="password" placeholder="Credencial temporal para la prueba" />
+              <input id="password-input" type="password" placeholder="Credencial para la prueba" />
             </div>
             <div class="btn-row">
-              <button id="step1-next-btn" class="btn">Continuar a prueba</button>
-              <button id="refresh-scan-btn-stepper" class="btn btn-muted">Actualizar escaneo</button>
+              <button id="step1-next-btn" class="btn">Continuar</button>
+              <button id="scan-networks-btn-stepper" class="btn btn-muted">Escanear redes</button>
               <button id="stepper-home-btn-1" class="btn btn-muted">Volver a inicio</button>
             </div>
           </div>
 
           <div id="step-panel-2" class="step-panel">
-            <h3>Paso 2. Probar conexion</h3>
-            <p class="small">
-              Esta prueba valida si la red acepta conexion desde la board. No guarda todavia la red.
-            </p>
+            <h3>Paso 2. Revision local de credenciales</h3>
+            <p class="small">En setup no probamos conexion en vivo para mantener estable el AP. La validacion real se hara cuando apliques cambios y reinicies la board.</p>
             <p class="metric">SSID candidato: <span id="test-ssid" class="value">--</span></p>
+            <p class="metric">Password capturado: <span id="review-password-state" class="value">--</span></p>
             <div class="btn-row">
-              <button id="run-test-btn" class="btn">Ejecutar prueba</button>
+              <button id="step2-next-btn" class="btn">Continuar</button>
               <button id="back-to-step1-btn" class="btn btn-muted">Volver</button>
               <button id="stepper-home-btn-2" class="btn btn-muted">Inicio</button>
             </div>
           </div>
 
           <div id="step-panel-3" class="step-panel">
-            <h3>Paso 3. Guardar y asignar prioridad</h3>
+            <h3>Paso 3. Configurar prioridad en el borrador</h3>
             <div class="input-group">
               <label for="priority-input">Prioridad</label>
               <input id="priority-input" type="number" min="1" max="9999" value="10" />
@@ -452,20 +507,22 @@
               </select>
             </div>
             <div class="btn-row">
-              <button id="save-network-btn" class="btn">Guardar red</button>
+              <button id="step3-next-btn" class="btn">Continuar</button>
               <button id="back-to-step2-btn" class="btn btn-muted">Volver</button>
               <button id="stepper-home-btn-3" class="btn btn-muted">Inicio</button>
             </div>
           </div>
 
           <div id="step-panel-4" class="step-panel">
-            <h3>Paso 4. Reiniciar board</h3>
-            <p class="small">
-              La board reiniciara para volver a operacion normal. La IP puede cambiar al entrar por DHCP;
-              si estabas conectado al AP del nodo, vuelve a la red local antes de abrir la nueva IP.
-            </p>
+            <h3>Paso 4. Agregar al borrador</h3>
+            <p class="small">La red quedara lista en el borrador local. Para aplicarla de verdad, vuelve al inicio y pulsa "Aplicar y reiniciar".</p>
+            <div class="transition-box">
+              <p class="metric">SSID: <span id="summary-ssid" class="value">--</span></p>
+              <p class="metric">Prioridad: <span id="summary-priority" class="value">--</span></p>
+              <p class="metric">Estado: <span id="summary-enabled" class="value">--</span></p>
+            </div>
             <div class="btn-row">
-              <button id="reboot-board-btn" class="btn">Reiniciar board</button>
+              <button id="add-network-draft-btn" class="btn">Agregar al borrador</button>
               <button id="back-to-step3-btn" class="btn btn-muted">Volver</button>
               <button id="stepper-home-btn-4" class="btn btn-muted">Inicio</button>
             </div>
@@ -477,11 +534,11 @@
 
       <div id="view-edit-network" class="view">
         <div class="card">
-          <h3>Editar red guardada</h3>
+          <h3>Editar red en borrador</h3>
           <p class="metric">SSID objetivo: <span id="edit-network-ssid" class="value">--</span></p>
           <div class="input-group">
             <label for="edit-password-input">Nuevo password</label>
-            <input id="edit-password-input" type="password" placeholder="Dejar vacio conserva el actual" />
+            <input id="edit-password-input" type="password" placeholder="Vacio conserva la actual" />
           </div>
           <div class="input-group">
             <label for="edit-priority-input">Prioridad</label>
@@ -495,52 +552,27 @@
             </select>
           </div>
           <div class="btn-row">
-            <button id="save-edit-network-btn" class="btn">Guardar cambios</button>
+            <button id="save-edit-network-btn" class="btn">Guardar cambio local</button>
             <button id="cancel-edit-network-btn" class="btn btn-muted">Volver a inicio</button>
           </div>
           <div id="edit-network-status" class="status-message hidden"></div>
         </div>
       </div>
-
-      <div id="view-node-identity" class="view">
-        <div class="card">
-          <h3>Nombre del nodo y mDNS</h3>
-          <div class="input-group">
-            <label for="board-name-input">Board name</label>
-            <input id="board-name-input" type="text" placeholder="Ej. Aula-Norte-01" />
-          </div>
-          <div class="input-group">
-            <label for="mdns-enabled-input">mDNS habilitado</label>
-            <select id="mdns-enabled-input">
-              <option value="true">Si</option>
-              <option value="false">No</option>
-            </select>
-          </div>
-          <p class="metric">Hostname derivado: <span id="identity-form-mdns-hostname" class="value mono">--</span></p>
-          <p class="metric">Ultima IP local: <span id="identity-form-last-ip" class="value mono">--</span></p>
-          <p class="metric">Ultimo SSID STA: <span id="identity-form-last-ssid" class="value">--</span></p>
-          <p class="metric">SSID AP setup: <span id="identity-form-setup-ssid" class="value">--</span></p>
-          <div class="btn-row">
-            <button id="save-identity-btn" class="btn">Guardar identidad</button>
-            <button id="cancel-identity-btn" class="btn btn-muted">Volver a inicio</button>
-          </div>
-          <div id="identity-status" class="status-message hidden"></div>
-        </div>
-      </div>
     </div>
 
     <script>
+      const DRAFT_STORAGE_KEY = "fdl_setup_draft_v2";
+      let serverState = null;
+      let draftState = null;
       let currentView = "home";
       let currentStep = 1;
-      let stopPolling = false;
-      let latestWifiConfig = null;
-      let latestIdentity = null;
       let networkBeingEdited = null;
+      let visibleNetworks = [];
       let stepState = {
         ssid: "",
         password: "",
-        testPassed: false,
-        networkSaved: false
+        priority: 10,
+        enabled: true
       };
 
       function byId(id) {
@@ -559,121 +591,199 @@
 
       function fetchJson(url, options) {
         return fetch(url, options).then(function (response) {
-          return response.json();
+          return response.text().then(function (text) {
+            let payload = {};
+            try {
+              payload = text ? JSON.parse(text) : {};
+            } catch (error) {
+              payload = {};
+            }
+
+            if (!response.ok) {
+              throw new Error(payload.error || payload.message || ("HTTP " + response.status));
+            }
+
+            return payload;
+          });
         });
+      }
+
+      function setButtonLoading(button, loadingText) {
+        if (!button) {
+          return function () {};
+        }
+        const originalText = button.textContent;
+        button.disabled = true;
+        button.classList.add("loading");
+        if (loadingText) {
+          button.textContent = loadingText;
+        }
+        return function restore() {
+          button.disabled = false;
+          button.classList.remove("loading");
+          button.textContent = originalText;
+        };
+      }
+
+      function withButtonLoading(buttonId, loadingText, work) {
+        const restore = setButtonLoading(byId(buttonId), loadingText);
+        return Promise.resolve().then(work).finally(restore);
+      }
+
+      function deepClone(obj) {
+        return JSON.parse(JSON.stringify(obj));
+      }
+
+      function sanitizeBoardName(value, fallback) {
+        const source = String(value || "").trim() || String(fallback || "node");
+        let cleaned = "";
+        let lastWasDash = false;
+
+        for (let i = 0; i < source.length; i += 1) {
+          const char = source.charAt(i);
+          const code = source.charCodeAt(i);
+          const isAsciiAlnum =
+            (code >= 48 && code <= 57) ||
+            (code >= 65 && code <= 90) ||
+            (code >= 97 && code <= 122);
+
+          if (isAsciiAlnum) {
+            cleaned += char;
+            lastWasDash = false;
+          } else if ((char === " " || char === "-" || char === "_") && cleaned && !lastWasDash) {
+            cleaned += "-";
+            lastWasDash = true;
+          }
+        }
+
+        cleaned = cleaned.replace(/^-+|-+$/g, "");
+        if (!cleaned) {
+          cleaned = String(fallback || "node");
+        }
+        return cleaned.slice(0, 24);
+      }
+
+      function deriveMdnsHostname(boardName, fallback) {
+        const source = sanitizeBoardName(boardName, fallback);
+        let hostname = "";
+        let lastWasDash = false;
+
+        for (let i = 0; i < source.length; i += 1) {
+          const char = source.charAt(i).toLowerCase();
+          const code = char.charCodeAt(0);
+          const isAsciiAlnum =
+            (code >= 48 && code <= 57) ||
+            (code >= 97 && code <= 122);
+
+          if (isAsciiAlnum) {
+            hostname += char;
+            lastWasDash = false;
+          } else if ((char === " " || char === "-" || char === "_") && hostname && !lastWasDash) {
+            hostname += "-";
+            lastWasDash = true;
+          }
+        }
+
+        hostname = hostname.replace(/^-+|-+$/g, "");
+        if (!hostname) {
+          hostname = sanitizeBoardName(fallback || "node", "node").toLowerCase();
+        }
+        return hostname.slice(0, 32);
+      }
+
+      function deriveSetupSsid(boardName, fallback) {
+        return "FDL-Setup-" + sanitizeBoardName(boardName, fallback);
+      }
+
+      function setDirty(value) {
+        draftState.dirty = !!value;
+        updateTopbarState();
+      }
+
+      function updateTopbarState() {
+        if (!draftState) {
+          return;
+        }
+        byId("topbar-board-id").textContent = draftState.board_id || "--";
+        byId("topbar-dirty").textContent = draftState.dirty ? "Si" : "No";
+      }
+
+      function createDraftFromServer(snapshot) {
+        const identity = snapshot.identity || {};
+        const wifiConfig = snapshot.wifiConfig || {};
+        const knownNetworks = (wifiConfig.known_networks || []).map(function (entry) {
+          return {
+            ssid: entry.ssid,
+            priority: entry.priority,
+            enabled: !!entry.enabled,
+            password: null,
+            existing: true
+          };
+        });
+
+        return {
+          board_id: identity.board_id || "",
+          identity: {
+            board_name: identity.board_name || "",
+            mdns_enabled: identity.mdns_enabled !== false,
+            last_local_ip: identity.last_local_ip || null,
+            last_local_ssid: identity.last_local_ssid || null
+          },
+          networks: knownNetworks,
+          removed_ssids: [],
+          dirty: false
+        };
+      }
+
+      function loadDraftFromStorage(boardId) {
+        try {
+          const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+          if (!raw) {
+            return null;
+          }
+          const parsed = JSON.parse(raw);
+          if (!parsed || parsed.board_id !== boardId) {
+            return null;
+          }
+          return parsed;
+        } catch (error) {
+          return null;
+        }
+      }
+
+      function saveDraftToStorage() {
+        try {
+          localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draftState));
+          return true;
+        } catch (error) {
+          return false;
+        }
+      }
+
+      function clearSavedDraft() {
+        try {
+          localStorage.removeItem(DRAFT_STORAGE_KEY);
+        } catch (error) {}
+      }
+
+      function mergeDraftWithServer() {
+        if (!serverState) {
+          return;
+        }
+        const stored = loadDraftFromStorage(serverState.identity.board_id);
+        draftState = stored || createDraftFromServer(serverState);
+        if (!draftState.identity || !draftState.networks) {
+          draftState = createDraftFromServer(serverState);
+        }
       }
 
       function showView(name) {
         currentView = name;
-        const views = ["home", "stepper", "edit-network", "node-identity"];
+        const views = ["home", "stepper", "edit-network"];
         for (let i = 0; i < views.length; i += 1) {
           const viewName = views[i];
           byId("view-" + viewName).className = "view" + (viewName === name ? " active" : "");
         }
-      }
-
-      function renderSavedNetworks() {
-        const tbody = byId("saved-networks-body");
-        if (!latestWifiConfig || !latestWifiConfig.known_networks || !latestWifiConfig.known_networks.length) {
-          tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#94a3b8;">Sin redes guardadas</td></tr>';
-          return;
-        }
-
-        let rows = "";
-        for (let i = 0; i < latestWifiConfig.known_networks.length; i += 1) {
-          const net = latestWifiConfig.known_networks[i];
-          rows += "<tr>";
-          rows += "<td>" + net.ssid + "</td>";
-          rows += "<td>" + net.priority + "</td>";
-          rows += "<td>" + (net.enabled ? "Si" : "No") + "</td>";
-          rows += "<td><div class=\"inline-actions\">";
-          rows += "<button class=\"btn btn-muted\" style=\"padding:0.35rem 0.55rem;\" onclick=\"openNetworkEditor(" + i + ")\">Editar</button>";
-          rows += "<button class=\"btn btn-danger\" style=\"padding:0.35rem 0.55rem;\" onclick=\"deleteStoredNetwork('" + encodeURIComponent(net.ssid) + "')\">Eliminar</button>";
-          rows += "</div></td>";
-          rows += "</tr>";
-        }
-        tbody.innerHTML = rows;
-      }
-
-      function renderVisibleNetworks(data) {
-        const tbody = byId("visible-networks-body");
-        const options = byId("wifi-scan-options");
-        options.innerHTML = "";
-
-        if (!data || !data.networks || !data.networks.length) {
-          tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#94a3b8;">No se detectaron redes</td></tr>';
-          return;
-        }
-
-        let rows = "";
-        for (let i = 0; i < data.networks.length; i += 1) {
-          const net = data.networks[i];
-          const option = document.createElement("option");
-          option.value = net.ssid;
-          options.appendChild(option);
-
-          rows += "<tr>";
-          rows += "<td><button class=\"btn btn-muted\" style=\"padding:0.35rem 0.55rem; margin-right:0.5rem;\" onclick=\"startWizardWithSSID('" + encodeURIComponent(net.ssid) + "')\">Usar</button>" + net.ssid + "</td>";
-          rows += "<td>" + net.signal_quality + " <span class=\"network-pill\">" + net.signal_percent + "%</span></td>";
-          rows += "<td>" + net.security + "</td>";
-          rows += "</tr>";
-        }
-        tbody.innerHTML = rows;
-      }
-
-      function renderHomeSummary(wifi, identity, modePayload) {
-        byId("home-wifi-mode").textContent = wifi && wifi.mode ? wifi.mode : "--";
-        byId("home-wifi-ssid").textContent = wifi && wifi.ssid ? wifi.ssid : "--";
-        byId("home-wifi-ip").textContent = wifi && wifi.ip ? wifi.ip : "--";
-        byId("home-last-connected").textContent = wifi && wifi.last_connected_ssid ? wifi.last_connected_ssid : "--";
-        byId("home-operation-mode").textContent = modePayload && modePayload.operation_mode ? modePayload.operation_mode : "setup";
-
-        byId("identity-board-id").textContent = identity && identity.board_id ? identity.board_id : "--";
-        byId("identity-board-name").textContent = identity && identity.board_name ? identity.board_name : "--";
-        byId("identity-mdns-hostname").textContent = identity && identity.mdns_hostname ? identity.mdns_hostname + ".local" : "--";
-        byId("identity-mdns-enabled").textContent = identity && identity.mdns_enabled ? "Si" : "No";
-        byId("identity-last-ip").textContent = identity && identity.last_local_ip ? identity.last_local_ip : "--";
-        byId("identity-last-ssid").textContent = identity && identity.last_local_ssid ? identity.last_local_ssid : "--";
-        byId("identity-setup-ssid").textContent = latestWifiConfig && latestWifiConfig.setup_ap ? latestWifiConfig.setup_ap.ssid : "--";
-      }
-
-      function renderIdentityForm() {
-        if (!latestIdentity) {
-          return;
-        }
-        byId("board-name-input").value = latestIdentity.board_name || "";
-        byId("mdns-enabled-input").value = latestIdentity.mdns_enabled ? "true" : "false";
-        byId("identity-form-mdns-hostname").textContent = latestIdentity.mdns_hostname ? latestIdentity.mdns_hostname + ".local" : "--";
-        byId("identity-form-last-ip").textContent = latestIdentity.last_local_ip || "--";
-        byId("identity-form-last-ssid").textContent = latestIdentity.last_local_ssid || "--";
-        byId("identity-form-setup-ssid").textContent = latestWifiConfig && latestWifiConfig.setup_ap ? latestWifiConfig.setup_ap.ssid : "--";
-      }
-
-      function renderLastTest(result) {
-        if (!result) {
-          return;
-        }
-      }
-
-      function loadSetupData() {
-        return Promise.all([
-          fetchJson("/wifi"),
-          fetchJson("/wifi/config"),
-          fetchJson("/device/identity"),
-          fetchJson("/operation-mode"),
-          fetchJson("/wifi/scan")
-        ]).then(function (results) {
-          const wifi = results[0] || {};
-          latestWifiConfig = results[1] || null;
-          latestIdentity = results[2] || null;
-          const modePayload = results[3] || {};
-          const scan = results[4] || null;
-
-          renderSavedNetworks();
-          renderVisibleNetworks(scan);
-          renderHomeSummary(wifi, latestIdentity, modePayload);
-          renderIdentityForm();
-        }).catch(function () {});
       }
 
       function setStep(stepNumber) {
@@ -692,18 +802,134 @@
         }
       }
 
+      function renderSavedNetworks() {
+        const tbody = byId("saved-networks-body");
+        const networks = draftState.networks || [];
+        if (!networks.length) {
+          tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#94a3b8;">Sin redes en el borrador</td></tr>';
+          return;
+        }
+
+        let rows = "";
+        for (let i = 0; i < networks.length; i += 1) {
+          const net = networks[i];
+          rows += "<tr>";
+          rows += "<td>" + net.ssid + "</td>";
+          rows += "<td>" + net.priority + "</td>";
+          rows += "<td>" + (net.enabled ? "Si" : "No") + "</td>";
+          rows += "<td><div class=\"inline-actions\">";
+          rows += "<button class=\"btn btn-muted\" style=\"padding:0.35rem 0.55rem;\" onclick=\"openNetworkEditor(" + i + ")\">Editar</button>";
+          rows += "<button class=\"btn btn-danger\" style=\"padding:0.35rem 0.55rem;\" onclick=\"removeNetworkFromDraft(" + i + ")\">Eliminar</button>";
+          rows += "</div></td>";
+          rows += "</tr>";
+        }
+        tbody.innerHTML = rows;
+      }
+
+      function renderVisibleNetworks() {
+        const tbody = byId("visible-networks-body");
+        const datalist = byId("wifi-scan-options");
+        datalist.innerHTML = "";
+
+        if (!visibleNetworks.length) {
+          tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#94a3b8;">No hay escaneo reciente.</td></tr>';
+          return;
+        }
+
+        let rows = "";
+        for (let i = 0; i < visibleNetworks.length; i += 1) {
+          const net = visibleNetworks[i];
+          const option = document.createElement("option");
+          option.value = net.ssid;
+          datalist.appendChild(option);
+
+          rows += "<tr>";
+          rows += "<td><button class=\"btn btn-muted\" style=\"padding:0.35rem 0.55rem; margin-right:0.5rem;\" onclick=\"startWizardWithSSID('" + encodeURIComponent(net.ssid) + "')\">Usar</button>" + net.ssid + "</td>";
+          rows += "<td>" + net.signal_quality + " <span class=\"network-pill\">" + net.signal_percent + "%</span></td>";
+          rows += "<td>" + net.security + "</td>";
+          rows += "</tr>";
+        }
+        tbody.innerHTML = rows;
+      }
+
+      function renderIdentitySection() {
+        const identity = draftState.identity;
+        const fallback = "node-" + String((draftState.board_id || "000000").slice(-6)).toUpperCase();
+        const sanitized = sanitizeBoardName(identity.board_name, fallback);
+        const mdnsHostname = deriveMdnsHostname(sanitized, fallback);
+        const setupSsid = deriveSetupSsid(sanitized, fallback);
+
+        if (byId("board-name-input") !== document.activeElement) {
+          byId("board-name-input").value = identity.board_name || "";
+        }
+        byId("mdns-enabled-input").value = identity.mdns_enabled ? "true" : "false";
+        byId("identity-preview-mdns").textContent = identity.mdns_enabled ? mdnsHostname + ".local" : "mDNS deshabilitado";
+        byId("identity-preview-ssid").textContent = setupSsid;
+        byId("identity-last-ip").textContent = identity.last_local_ip || "--";
+        byId("identity-last-ssid").textContent = identity.last_local_ssid || "--";
+      }
+
+      function renderHomeState() {
+        const wifi = serverState.wifi || {};
+        const modePayload = serverState.modePayload || {};
+        byId("home-wifi-mode").textContent = wifi.mode || "--";
+        byId("home-wifi-ssid").textContent = wifi.ssid || "--";
+        byId("home-wifi-ip").textContent = wifi.ip || "--";
+        byId("home-last-connected").textContent = wifi.last_connected_ssid || "--";
+        byId("home-operation-mode").textContent = modePayload.operation_mode || "setup";
+      }
+
+      function renderAll() {
+        updateTopbarState();
+        renderSavedNetworks();
+        renderVisibleNetworks();
+        renderIdentitySection();
+        renderHomeState();
+      }
+
+      async function loadServerState() {
+        const setupState = await fetchJson("/setup/state");
+        serverState = {
+          wifi: setupState.wifi || {},
+          wifiConfig: setupState.wifi_config || {},
+          identity: setupState.identity || {},
+          modePayload: setupState.operation_mode || {}
+        };
+        mergeDraftWithServer();
+        renderAll();
+      }
+
+      function setTopbarMessage(text, ok) {
+        showMessage(byId("topbar-status"), text, ok);
+      }
+
+      function clearTopbarMessage() {
+        hideMessage(byId("topbar-status"));
+      }
+
+      function onIdentityInputChanged() {
+        draftState.identity.board_name = byId("board-name-input").value;
+        draftState.identity.mdns_enabled = byId("mdns-enabled-input").value === "true";
+        setDirty(true);
+        renderIdentitySection();
+      }
+
       function openStepper(prefillSsid) {
         stepState = {
           ssid: prefillSsid || "",
           password: "",
-          testPassed: false,
-          networkSaved: false
+          priority: 10,
+          enabled: true
         };
         byId("ssid-input").value = prefillSsid || "";
         byId("password-input").value = "";
         byId("priority-input").value = "10";
         byId("enabled-input").value = "true";
         byId("test-ssid").textContent = prefillSsid || "--";
+        byId("review-password-state").textContent = "--";
+        byId("summary-ssid").textContent = prefillSsid || "--";
+        byId("summary-priority").textContent = "10";
+        byId("summary-enabled").textContent = "Si";
         hideMessage(byId("stepper-status"));
         setStep(1);
         showView("stepper");
@@ -722,250 +948,269 @@
         }
         stepState.ssid = ssid;
         stepState.password = password;
-        stepState.testPassed = false;
-        stepState.networkSaved = false;
         byId("test-ssid").textContent = ssid;
+        byId("review-password-state").textContent = password ? "Capturado" : "Vacio";
+        byId("summary-ssid").textContent = ssid;
         hideMessage(byId("stepper-status"));
         setStep(2);
       }
 
-      function runTest() {
-        const btn = byId("run-test-btn");
-        btn.disabled = true;
-        showMessage(byId("stepper-status"), "Probando conectividad con la red seleccionada...", true);
-        fetchJson("/wifi/test", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ssid: stepState.ssid,
-            password: stepState.password
-          })
-        }).then(function (result) {
-          if (result.error) {
-            throw new Error(result.error);
-          }
-          if (!result.success) {
-            stepState.testPassed = false;
-            showMessage(byId("stepper-status"), "Prueba fallida: " + result.message, false);
-            return;
-          }
-          stepState.testPassed = true;
-          showMessage(byId("stepper-status"), "Prueba exitosa. Ya puedes guardar la red con prioridad.", true);
-          setStep(3);
-        }).catch(function (err) {
-          stepState.testPassed = false;
-          showMessage(byId("stepper-status"), "No se pudo completar la prueba: " + String(err.message || err), false);
-        }).finally(function () {
-          btn.disabled = false;
-        });
+      function advanceStep2() {
+        showMessage(byId("stepper-status"), "La red sera validada despues de aplicar cambios y reiniciar.", true);
+        setStep(3);
       }
 
-      function saveNetworkFromStepper() {
-        if (!stepState.testPassed) {
-          showMessage(byId("stepper-status"), "Debes pasar la prueba de conexion antes de guardar.", false);
-          return;
-        }
-
-        const btn = byId("save-network-btn");
-        btn.disabled = true;
-        fetchJson("/wifi/config", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ssid: stepState.ssid,
-            password: stepState.password || null,
-            priority: parseInt(byId("priority-input").value || "10", 10),
-            enabled: byId("enabled-input").value === "true"
-          })
-        }).then(function (data) {
-          if (data.error) {
-            throw new Error(data.error);
-          }
-          return fetchJson("/operation-mode", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ operation_mode: "normal" })
-          }).then(function () {
-            latestWifiConfig = data.wifi || latestWifiConfig;
-            stepState.networkSaved = true;
-            showMessage(byId("stepper-status"), "Red guardada. El siguiente paso reinicia la board para volver a modo normal.", true);
-            setStep(4);
-            loadSetupData();
-          });
-        }).catch(function (err) {
-          showMessage(byId("stepper-status"), "No se pudo guardar la red: " + String(err.message || err), false);
-        }).finally(function () {
-          btn.disabled = false;
-        });
+      function advanceStep3() {
+        stepState.priority = parseInt(byId("priority-input").value || "10", 10);
+        stepState.enabled = byId("enabled-input").value === "true";
+        byId("summary-priority").textContent = String(stepState.priority);
+        byId("summary-enabled").textContent = stepState.enabled ? "Si" : "No";
+        hideMessage(byId("stepper-status"));
+        setStep(4);
       }
 
-      function rebootBoard() {
-        if (!stepState.networkSaved) {
-          showMessage(byId("stepper-status"), "Primero debes guardar la red.", false);
-          return;
+      function addNetworkToDraft() {
+        const existingIndex = draftState.networks.findIndex(function (net) {
+          return net.ssid === stepState.ssid;
+        });
+        const networkDraft = {
+          ssid: stepState.ssid,
+          priority: stepState.priority,
+          enabled: stepState.enabled,
+          password: stepState.password || null,
+          existing: existingIndex >= 0 ? draftState.networks[existingIndex].existing : false
+        };
+
+        if (existingIndex >= 0) {
+          draftState.networks[existingIndex] = networkDraft;
+        } else {
+          draftState.networks.push(networkDraft);
         }
-        stopPolling = true;
-        byId("reboot-board-btn").disabled = true;
-        showMessage(byId("stepper-status"), "Reiniciando la board. Esta pagina puede desconectarse. Vuelve a abrir la nueva IP cuando el nodo termine de reiniciar.", true);
-        fetch("/system/reboot", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" }
-        }).catch(function () {});
+
+        draftState.removed_ssids = draftState.removed_ssids.filter(function (ssid) {
+          return ssid !== stepState.ssid;
+        });
+
+        setDirty(true);
+        renderSavedNetworks();
+        showMessage(byId("stepper-status"), "Red agregada al borrador. Vuelve al inicio y pulsa 'Aplicar y reiniciar' cuando estes listo.", true);
+        showView("home");
       }
 
       function openNetworkEditor(index) {
-        if (!latestWifiConfig || !latestWifiConfig.known_networks || !latestWifiConfig.known_networks[index]) {
+        const network = draftState.networks[index];
+        if (!network) {
           return;
         }
-        networkBeingEdited = latestWifiConfig.known_networks[index];
-        byId("edit-network-ssid").textContent = networkBeingEdited.ssid;
+        networkBeingEdited = index;
+        byId("edit-network-ssid").textContent = network.ssid;
         byId("edit-password-input").value = "";
-        byId("edit-priority-input").value = String(networkBeingEdited.priority);
-        byId("edit-enabled-input").value = networkBeingEdited.enabled ? "true" : "false";
+        byId("edit-priority-input").value = String(network.priority);
+        byId("edit-enabled-input").value = network.enabled ? "true" : "false";
         hideMessage(byId("edit-network-status"));
         showView("edit-network");
       }
 
       function saveEditedNetwork() {
-        if (!networkBeingEdited) {
+        if (networkBeingEdited === null) {
           return;
         }
-        const btn = byId("save-edit-network-btn");
-        btn.disabled = true;
-        fetchJson("/wifi/config", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ssid: networkBeingEdited.ssid,
-            password: byId("edit-password-input").value.trim() ? byId("edit-password-input").value : null,
-            priority: parseInt(byId("edit-priority-input").value || "10", 10),
-            enabled: byId("edit-enabled-input").value === "true"
-          })
-        }).then(function (data) {
-          if (data.error) {
-            throw new Error(data.error);
+        const network = draftState.networks[networkBeingEdited];
+        if (!network) {
+          return;
+        }
+
+        network.priority = parseInt(byId("edit-priority-input").value || "10", 10);
+        network.enabled = byId("edit-enabled-input").value === "true";
+        const newPassword = byId("edit-password-input").value.trim();
+        if (newPassword) {
+          network.password = newPassword;
+        }
+
+        setDirty(true);
+        renderSavedNetworks();
+        showMessage(byId("edit-network-status"), "Cambio guardado en el borrador.", true);
+        setTimeout(function () {
+          showView("home");
+        }, 300);
+      }
+
+      function removeNetworkFromDraft(index) {
+        const network = draftState.networks[index];
+        if (!network) {
+          return;
+        }
+        if (network.existing) {
+          if (draftState.removed_ssids.indexOf(network.ssid) === -1) {
+            draftState.removed_ssids.push(network.ssid);
           }
-          latestWifiConfig = data.wifi || latestWifiConfig;
-          showMessage(byId("edit-network-status"), "Red actualizada.", true);
-          loadSetupData();
-          setTimeout(function () {
-            showView("home");
-          }, 400);
-        }).catch(function (err) {
-          showMessage(byId("edit-network-status"), "No se pudo actualizar la red: " + String(err.message || err), false);
-        }).finally(function () {
-          btn.disabled = false;
+        }
+        draftState.networks.splice(index, 1);
+        setDirty(true);
+        renderSavedNetworks();
+      }
+
+      async function scanNetworks(buttonId) {
+        clearTopbarMessage();
+        return withButtonLoading(buttonId, "Escaneando", function () {
+          return fetchJson("/wifi/scan")
+            .then(function (data) {
+              visibleNetworks = data.networks || [];
+              renderVisibleNetworks();
+              if (data.error) {
+                setTopbarMessage(data.error, false);
+              } else {
+                setTopbarMessage("Escaneo completado.", true);
+              }
+            })
+            .catch(function (err) {
+              setTopbarMessage("No se pudo escanear redes: " + String(err.message || err), false);
+            });
         });
       }
 
-      function deleteStoredNetwork(encodedSsid) {
-        const ssid = decodeURIComponent(encodedSsid);
-        fetchJson("/wifi/config/" + encodeURIComponent(ssid), {
-          method: "DELETE"
-        }).then(function (data) {
-          if (data.error) {
-            throw new Error(data.error);
-          }
-          latestWifiConfig = data.wifi || latestWifiConfig;
-          loadSetupData();
-        }).catch(function () {});
+      async function refreshServerState() {
+        if (draftState && draftState.dirty) {
+          setTopbarMessage("Descarta o guarda tu borrador antes de recargar el estado del nodo.", false);
+          return;
+        }
+        clearTopbarMessage();
+        return withButtonLoading("refresh-state-btn", "Recargando", function () {
+          return loadServerState()
+            .then(function () {
+              setTopbarMessage("Estado real del nodo recargado.", true);
+            })
+            .catch(function (err) {
+              setTopbarMessage("No se pudo recargar el estado: " + String(err.message || err), false);
+            });
+        });
       }
 
-      function openIdentityView() {
-        renderIdentityForm();
-        hideMessage(byId("identity-status"));
-        showView("node-identity");
+      function discardDraft() {
+        if (!serverState) {
+          return;
+        }
+        clearSavedDraft();
+        draftState = createDraftFromServer(serverState);
+        renderAll();
+        showView("home");
+        setTopbarMessage("Borrador descartado.", true);
       }
 
-      function saveIdentity() {
-        const boardName = byId("board-name-input").value.trim();
+      function saveDraft() {
+        if (!draftState) {
+          return;
+        }
+        const ok = saveDraftToStorage();
+        if (ok) {
+          setDirty(false);
+          setTopbarMessage("Borrador guardado en este navegador.", true);
+        } else {
+          setTopbarMessage("No se pudo guardar el borrador local.", false);
+        }
+      }
+
+      async function applyDraftAndReboot() {
+        if (!draftState) {
+          return;
+        }
+
+        const boardName = String(draftState.identity.board_name || "").trim();
         if (!boardName) {
-          showMessage(byId("identity-status"), "Debes ingresar un nombre para el nodo.", false);
+          setTopbarMessage("Debes definir un nombre para el nodo antes de aplicar.", false);
           return;
         }
 
-        const btn = byId("save-identity-btn");
-        btn.disabled = true;
-        fetchJson("/device/identity", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            board_name: boardName,
-            mdns_enabled: byId("mdns-enabled-input").value === "true"
-          })
-        }).then(function (data) {
-          if (data.error) {
-            throw new Error(data.error);
-          }
-          latestIdentity = data.identity || latestIdentity;
-          showMessage(byId("identity-status"), "Identidad del nodo actualizada.", true);
-          loadSetupData();
-          setTimeout(function () {
-            showView("home");
-          }, 400);
-        }).catch(function (err) {
-          showMessage(byId("identity-status"), "No se pudo guardar la identidad: " + String(err.message || err), false);
-        }).finally(function () {
-          btn.disabled = false;
+        const restore = setButtonLoading(byId("apply-reboot-btn"), "Aplicando");
+        try {
+          setTopbarMessage("Aplicando cambios del borrador al nodo. El AP permanecera estable hasta el reinicio final...", true);
+
+          await fetchJson("/setup/apply", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              identity: {
+                board_name: boardName,
+                mdns_enabled: !!draftState.identity.mdns_enabled
+              },
+              networks: draftState.networks,
+              removed_ssids: draftState.removed_ssids,
+              operation_mode: "normal"
+            })
+          });
+
+          clearSavedDraft();
+          setDirty(false);
+          setTopbarMessage("Cambios aplicados. La board reiniciara y la red puede cambiar. Reabre la nueva IP o el hostname .local al terminar.", true);
+        } catch (err) {
+          setTopbarMessage("No se pudieron aplicar los cambios: " + String(err.message || err), false);
+        } finally {
+          restore();
+        }
+      }
+
+      async function boot() {
+        try {
+          await loadServerState();
+        } catch (err) {
+          setTopbarMessage("No se pudo cargar el estado inicial del setup: " + String(err.message || err), false);
+          return;
+        }
+
+        byId("board-name-input").addEventListener("input", onIdentityInputChanged);
+        byId("mdns-enabled-input").addEventListener("change", onIdentityInputChanged);
+
+        byId("refresh-state-btn").addEventListener("click", refreshServerState);
+        byId("discard-draft-btn").addEventListener("click", discardDraft);
+        byId("save-draft-btn").addEventListener("click", saveDraft);
+        byId("apply-reboot-btn").addEventListener("click", applyDraftAndReboot);
+
+        byId("open-stepper-btn").addEventListener("click", function () {
+          openStepper("");
         });
-      }
-
-      function resetWifi() {
-        const btn = byId("reset-wifi-btn");
-        btn.disabled = true;
-        fetchJson("/wifi/reset", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" }
-        }).then(function (data) {
-          if (data.error) {
-            throw new Error(data.error);
-          }
-          loadSetupData();
-        }).catch(function () {}).finally(function () {
-          btn.disabled = false;
+        byId("scan-networks-btn").addEventListener("click", function () {
+          scanNetworks("scan-networks-btn");
         });
+        byId("scan-networks-btn-stepper").addEventListener("click", function () {
+          scanNetworks("scan-networks-btn-stepper");
+        });
+
+        byId("step1-next-btn").addEventListener("click", captureStep1);
+        byId("step2-next-btn").addEventListener("click", advanceStep2);
+        byId("step3-next-btn").addEventListener("click", advanceStep3);
+        byId("add-network-draft-btn").addEventListener("click", addNetworkToDraft);
+
+        byId("back-to-step1-btn").addEventListener("click", function () {
+          setStep(1);
+          hideMessage(byId("stepper-status"));
+        });
+        byId("back-to-step2-btn").addEventListener("click", function () {
+          setStep(2);
+          hideMessage(byId("stepper-status"));
+        });
+        byId("back-to-step3-btn").addEventListener("click", function () {
+          setStep(3);
+          hideMessage(byId("stepper-status"));
+        });
+
+        byId("stepper-home-btn-1").addEventListener("click", function () { showView("home"); });
+        byId("stepper-home-btn-2").addEventListener("click", function () { showView("home"); });
+        byId("stepper-home-btn-3").addEventListener("click", function () { showView("home"); });
+        byId("stepper-home-btn-4").addEventListener("click", function () { showView("home"); });
+
+        byId("save-edit-network-btn").addEventListener("click", saveEditedNetwork);
+        byId("cancel-edit-network-btn").addEventListener("click", function () {
+          showView("home");
+        });
+
+        renderAll();
       }
 
-      function startPolling() {
-        setInterval(function () {
-          if (stopPolling) {
-            return;
-          }
-          loadSetupData();
-        }, 9000);
-      }
-
-      byId("open-stepper-btn").addEventListener("click", function () { openStepper(""); });
-      byId("refresh-scan-btn-home").addEventListener("click", loadSetupData);
-      byId("reload-home-btn").addEventListener("click", loadSetupData);
-      byId("open-identity-btn").addEventListener("click", openIdentityView);
-      byId("reset-wifi-btn").addEventListener("click", resetWifi);
-
-      byId("step1-next-btn").addEventListener("click", captureStep1);
-      byId("refresh-scan-btn-stepper").addEventListener("click", loadSetupData);
-      byId("run-test-btn").addEventListener("click", runTest);
-      byId("save-network-btn").addEventListener("click", saveNetworkFromStepper);
-      byId("reboot-board-btn").addEventListener("click", rebootBoard);
-      byId("back-to-step1-btn").addEventListener("click", function () { setStep(1); hideMessage(byId("stepper-status")); });
-      byId("back-to-step2-btn").addEventListener("click", function () { setStep(2); hideMessage(byId("stepper-status")); });
-      byId("back-to-step3-btn").addEventListener("click", function () { setStep(3); hideMessage(byId("stepper-status")); });
-      byId("stepper-home-btn-1").addEventListener("click", function () { showView("home"); });
-      byId("stepper-home-btn-2").addEventListener("click", function () { showView("home"); });
-      byId("stepper-home-btn-3").addEventListener("click", function () { showView("home"); });
-      byId("stepper-home-btn-4").addEventListener("click", function () { showView("home"); });
-
-      byId("save-edit-network-btn").addEventListener("click", saveEditedNetwork);
-      byId("cancel-edit-network-btn").addEventListener("click", function () { showView("home"); });
-
-      byId("save-identity-btn").addEventListener("click", saveIdentity);
-      byId("cancel-identity-btn").addEventListener("click", function () { showView("home"); });
-
-      loadSetupData();
-      startPolling();
+      boot();
 
       window.startWizardWithSSID = startWizardWithSSID;
       window.openNetworkEditor = openNetworkEditor;
-      window.deleteStoredNetwork = deleteStoredNetwork;
+      window.removeNetworkFromDraft = removeNetworkFromDraft;
     </script>
   </body>
 </html>

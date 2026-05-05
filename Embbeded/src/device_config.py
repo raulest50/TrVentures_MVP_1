@@ -7,6 +7,7 @@ import ujson as json
 import network
 
 CONFIG_FILE = "device_config.json"
+MIN_SAMPLE_INTERVAL = 300
 
 DEFAULT_CONFIG = {
     "board_id": None,
@@ -17,8 +18,8 @@ DEFAULT_CONFIG = {
     "longitude": 0.0,
     "sensor_type": "SCD41",
     "location_name": "",
-    "sample_interval": 20,         # 20 segundos para lecturas rápidas del sensor
-    "questdb_interval": 1200,      # 20 minutos para envío al backend (no saturar)
+    "sample_interval": MIN_SAMPLE_INTERVAL,
+    "questdb_interval": 1200,
     "device_registered": False,
     "api_base_url": "https://api.fronteradatalabs.com",
     "cloud_upload_enabled": False,
@@ -92,7 +93,9 @@ def _derive_mdns_hostname(board_name, fallback=None):
 
     hostname = "".join(slug).strip("-")
     if not hostname:
-        hostname = _sanitize_board_name(fallback or _default_board_name(get_mac_address())).lower()
+        hostname = _sanitize_board_name(
+            fallback or _default_board_name(get_mac_address())
+        ).lower()
     return hostname[:32]
 
 
@@ -105,7 +108,13 @@ def _normalize_config(config):
         normalized["board_id"] = get_mac_address()
 
     fallback_name = _default_board_name(normalized["board_id"])
-    normalized["board_name"] = _sanitize_board_name(normalized.get("board_name"), fallback=fallback_name)
+    if str(normalized.get("board_name", "")).strip().lower() == "node-001":
+        normalized["board_name"] = fallback_name
+
+    normalized["board_name"] = _sanitize_board_name(
+        normalized.get("board_name"),
+        fallback=fallback_name,
+    )
     normalized["mdns_enabled"] = bool(normalized.get("mdns_enabled", True))
     normalized["mdns_hostname"] = _derive_mdns_hostname(
         normalized["board_name"],
@@ -113,6 +122,22 @@ def _normalize_config(config):
     )
     normalized["last_local_ip"] = normalized.get("last_local_ip") or None
     normalized["last_local_ssid"] = normalized.get("last_local_ssid") or None
+
+    try:
+        normalized["sample_interval"] = max(
+            MIN_SAMPLE_INTERVAL,
+            int(normalized.get("sample_interval", MIN_SAMPLE_INTERVAL)),
+        )
+    except Exception:
+        normalized["sample_interval"] = MIN_SAMPLE_INTERVAL
+
+    try:
+        normalized["questdb_interval"] = max(
+            1,
+            int(normalized.get("questdb_interval", 1200)),
+        )
+    except Exception:
+        normalized["questdb_interval"] = 1200
 
     mode = str(normalized.get("operation_mode", "normal")).strip().lower()
     if mode not in ("setup", "normal"):
@@ -132,7 +157,7 @@ def get_mac_address():
         mac_bytes = wlan.config("mac")
         return "".join(["{:02X}".format(b) for b in mac_bytes])
     except Exception as e:
-        print(f"Error obteniendo MAC address: {e}")
+        print("Error obteniendo MAC address: {}".format(e))
         return "UNKNOWN_MAC"
 
 
@@ -147,20 +172,24 @@ def load_config():
         return _config_cache
 
     try:
-        with open(CONFIG_FILE, "r") as f:
-            loaded = json.load(f)
+        with open(CONFIG_FILE, "r") as config_file:
+            loaded = json.load(config_file)
             config = _normalize_config(loaded)
-            print(f"Configuracion cargada desde {CONFIG_FILE}")
+            if config != loaded:
+                with open(CONFIG_FILE, "w") as migrated_file:
+                    json.dump(config, migrated_file)
+                print("Configuracion normalizada y actualizada en {}".format(CONFIG_FILE))
+            print("Configuracion cargada desde {}".format(CONFIG_FILE))
             _config_cache = config
             return config
     except OSError:
-        print(f"{CONFIG_FILE} no encontrado, creando con valores por defecto...")
+        print("{} no encontrado, creando con valores por defecto...".format(CONFIG_FILE))
         config = _normalize_config({})
         save_config(config)
         _config_cache = config
         return config
     except Exception as e:
-        print(f"Error cargando configuracion: {e}")
+        print("Error cargando configuracion: {}".format(e))
         config = _normalize_config({})
         _config_cache = config
         return config
@@ -175,15 +204,14 @@ def save_config(config):
 
     try:
         normalized = _normalize_config(config)
+        with open(CONFIG_FILE, "w") as config_file:
+            json.dump(normalized, config_file)
 
-        with open(CONFIG_FILE, "w") as f:
-            json.dump(normalized, f)
-
-        print(f"Configuracion guardada en {CONFIG_FILE}")
+        print("Configuracion guardada en {}".format(CONFIG_FILE))
         _config_cache = normalized
         return True
     except Exception as e:
-        print(f"Error guardando configuracion: {e}")
+        print("Error guardando configuracion: {}".format(e))
         return False
 
 
@@ -199,7 +227,10 @@ def get_board_name():
 
 def set_board_name(name):
     config = load_config()
-    config["board_name"] = _sanitize_board_name(name, fallback=_default_board_name(config.get("board_id")))
+    config["board_name"] = _sanitize_board_name(
+        name,
+        fallback=_default_board_name(config.get("board_id")),
+    )
     return save_config(config)
 
 
@@ -250,7 +281,7 @@ def get_sensor_type():
 
 def get_sample_interval():
     config = load_config()
-    return int(config.get("sample_interval", 300))
+    return max(MIN_SAMPLE_INTERVAL, int(config.get("sample_interval", MIN_SAMPLE_INTERVAL)))
 
 
 def get_questdb_interval():
@@ -259,9 +290,21 @@ def get_questdb_interval():
 
 
 def set_intervals(sample_interval, questdb_interval):
+    sample_interval = int(sample_interval)
+    questdb_interval = int(questdb_interval)
+
+    if sample_interval < MIN_SAMPLE_INTERVAL:
+        raise ValueError(
+            "sample_interval debe ser mayor o igual a {} segundos".format(
+                MIN_SAMPLE_INTERVAL
+            )
+        )
+    if questdb_interval <= 0:
+        raise ValueError("questdb_interval debe ser positivo")
+
     config = load_config()
-    config["sample_interval"] = int(sample_interval)
-    config["questdb_interval"] = int(questdb_interval)
+    config["sample_interval"] = sample_interval
+    config["questdb_interval"] = questdb_interval
     return save_config(config)
 
 
@@ -295,7 +338,7 @@ def print_config():
     longitude = config.get("longitude", 0.0)
     location_name = config.get("location_name", "(sin nombre)")
     api_base_url = config.get("api_base_url", "https://api.fronteradatalabs.com")
-    sample_interval = config.get("sample_interval", 300)
+    sample_interval = config.get("sample_interval", MIN_SAMPLE_INTERVAL)
     questdb_interval = config.get("questdb_interval", 1200)
     device_registered = config.get("device_registered", False)
     cloud_upload_enabled = config.get("cloud_upload_enabled", False)
@@ -353,7 +396,7 @@ def peek_next_deployment_id():
     config = load_config()
     board_id = config.get("board_id") or get_mac_address()
     counter = int(config.get("deployment_counter", 0)) + 1
-    return f"{board_id}_{counter:03d}"
+    return "{}_{:03d}".format(board_id, counter)
 
 
 def activate_deployment(deployment_id, latitude=None, longitude=None, location_name=None):
@@ -362,7 +405,10 @@ def activate_deployment(deployment_id, latitude=None, longitude=None, location_n
 
     counter = _extract_deployment_counter(deployment_id)
     if counter is not None:
-        config["deployment_counter"] = max(int(config.get("deployment_counter", 0)), counter)
+        config["deployment_counter"] = max(
+            int(config.get("deployment_counter", 0)),
+            counter,
+        )
 
     if latitude is not None:
         config["latitude"] = float(latitude)

@@ -34,19 +34,37 @@ _last_connection_attempt = 0
 _last_connection_error = None
 _last_test_result = None
 _mdns_status = "not_applied"
+_last_ap_profile = None
+_last_ap_optional_notes = []
+
+
+def _network_constant(*names):
+    for name in names:
+        value = getattr(network, name, None)
+        if value is not None:
+            return value
+
+    wlan_class = getattr(network, "WLAN", None)
+    if wlan_class is not None:
+        for name in names:
+            value = getattr(wlan_class, name, None)
+            if value is not None:
+                return value
+
+    raise AttributeError("network constant not found: {}".format(", ".join(names)))
 
 
 def _get_sta_wlan():
     global _sta_wlan
     if _sta_wlan is None:
-        _sta_wlan = network.WLAN(network.STA_IF)
+        _sta_wlan = network.WLAN(_network_constant("STA_IF", "IF_STA"))
     return _sta_wlan
 
 
 def _get_ap_wlan():
     global _ap_wlan
     if _ap_wlan is None:
-        _ap_wlan = network.WLAN(network.AP_IF)
+        _ap_wlan = network.WLAN(_network_constant("AP_IF", "IF_AP"))
     return _ap_wlan
 
 
@@ -236,6 +254,30 @@ def _init_sta():
     return wlan
 
 
+def _deactivate_sta(wlan=None):
+    wlan = wlan or _get_sta_wlan()
+    try:
+        wlan.disconnect()
+    except Exception:
+        pass
+
+    try:
+        wlan.active(False)
+    except Exception:
+        pass
+
+    return wlan
+
+
+def is_setup_locked():
+    if get_wifi_mode() == "setup_ap":
+        return True
+    try:
+        return device_config.get_operation_mode() == "setup"
+    except Exception:
+        return False
+
+
 def stop_setup_ap():
     global _mode
     ap = _get_ap_wlan()
@@ -248,29 +290,120 @@ def stop_setup_ap():
         _mode = "offline"
 
 
-def start_setup_ap(verbose=True):
-    global _mode
+def _ap_is_active(ap):
+    try:
+        return bool(ap.active())
+    except Exception:
+        return False
+
+
+def _ap_current_ssid(ap):
+    try:
+        ssid = ap.config("ssid")
+        if isinstance(ssid, bytes):
+            return ssid.decode("utf-8", "ignore")
+        return ssid
+    except Exception:
+        return None
+
+
+def _setup_ap_already_running(ap, setup_ap):
+    if not _ap_is_active(ap):
+        return False
+    if get_wifi_mode() != "setup_ap":
+        return False
+
+    active_ssid = _ap_current_ssid(ap)
+    if active_ssid is None:
+        return True
+    return active_ssid == setup_ap["ssid"]
+
+
+def start_setup_ap(verbose=True, force=False):
+    global _mode, _last_ap_profile, _last_ap_optional_notes
     config = load_wifi_config()
     setup_ap = config["setup_ap"]
     ap = _get_ap_wlan()
 
+    if not force and _setup_ap_already_running(ap, setup_ap):
+        return ap
+
+    _deactivate_sta()
+
     ap.active(False)
     time.sleep(0.2)
-    ap.active(True)
 
+    selected_profile = None
+    last_profile_error = None
+    _last_ap_optional_notes = []
+
+    profiles = []
     try:
-        ap.config(
-            ssid=setup_ap["ssid"],
-            key=setup_ap["password"],
-            security=network.AUTH_WPA2_PSK,
-            channel=setup_ap["channel"],
+        auth_wpa2_psk = _network_constant(
+            "AUTH_WPA2_PSK",
+            "SEC_WPA2",
+            "SEC_WPA2_PSK",
+        )
+        profiles.append(
+            (
+                "ssid+key+security+channel",
+                {
+                    "ssid": setup_ap["ssid"],
+                    "key": setup_ap["password"],
+                    "security": auth_wpa2_psk,
+                    "channel": setup_ap["channel"],
+                },
+            )
         )
     except Exception:
-        ap.config(
-            ssid=setup_ap["ssid"],
-            password=setup_ap["password"],
-            channel=setup_ap["channel"],
+        _last_ap_optional_notes.append("security=AUTH_WPA2_PSK no soportado por este runtime")
+
+    profiles.append(
+        (
+            "ssid+password+channel",
+            {
+                "ssid": setup_ap["ssid"],
+                "password": setup_ap["password"],
+                "channel": setup_ap["channel"],
+            },
         )
+    )
+
+    for profile_name, profile_kwargs in profiles:
+        try:
+            ap.config(**profile_kwargs)
+            selected_profile = profile_name
+            break
+        except Exception as e:
+            last_profile_error = str(e)
+            if verbose:
+                print("AP setup: perfil '{}' no soportado: {}".format(profile_name, e))
+
+    if selected_profile is None:
+        raise ValueError(
+            "No se pudo configurar el AP de setup con ningun perfil compatible: {}".format(
+                last_profile_error or "sin detalle"
+            )
+        )
+
+    ap.active(True)
+    _last_ap_profile = selected_profile
+
+    try:
+        pm_none = _network_constant("PM_NONE")
+        if pm_none is not None:
+            ap.config(pm=pm_none)
+            _last_ap_optional_notes.append("pm=PM_NONE aplicado")
+    except Exception:
+        _last_ap_optional_notes.append("pm omitido")
+
+    try:
+        ap.config(max_clients=4)
+        _last_ap_optional_notes.append("max_clients=4 aplicado")
+    except Exception:
+        _last_ap_optional_notes.append("max_clients omitido")
+
+    time.sleep(0.4)
 
     _mode = "setup_ap"
 
@@ -283,6 +416,9 @@ def start_setup_ap(verbose=True):
         print("  SSID: {}".format(setup_ap["ssid"]))
         print("  Password: {}".format(setup_ap["password"]))
         print("  URL: http://{}".format(ip))
+        print("  Perfil AP activo: {}".format(_last_ap_profile or "desconocido"))
+        for note in _last_ap_optional_notes:
+            print("  AP extra: {}".format(note))
 
     return ap
 
@@ -345,10 +481,16 @@ def _connect_once(wlan, entry, timeout_seconds, visible_ssids, verbose=True):
     return False
 
 
-def connect_wifi(do_scan=True, verbose=True, retries_per_network=1):
+def connect_wifi(do_scan=False, verbose=True, retries_per_network=1):
     global _mode, _last_connection_attempt
 
     config = load_wifi_config()
+    if device_config.get_operation_mode() == "setup":
+        if verbose:
+            print("WiFi: operation_mode=setup, manteniendo portal AP estable.")
+        start_setup_ap(verbose=verbose)
+        return _get_sta_wlan()
+
     networks = _get_network_order(config)
     wlan = _init_sta()
     _mode = "offline"
@@ -361,7 +503,7 @@ def connect_wifi(do_scan=True, verbose=True, retries_per_network=1):
             start_setup_ap(verbose=verbose)
         return wlan
 
-    visible_ssids = _scan_visible_ssids(wlan) if do_scan else []
+    visible_ssids = _scan_visible_ssids(wlan) if do_scan else None
     timeout_seconds = config["fallback"]["connect_timeout_seconds"]
     retry_backoff = config["fallback"]["retry_backoff_seconds"]
 
@@ -379,7 +521,15 @@ def connect_wifi(do_scan=True, verbose=True, retries_per_network=1):
 
 
 def ensure_connected(wlan, verbose=False):
-    global _last_check
+    global _last_check, _current_ssid, _mode
+
+    if is_setup_locked():
+        _current_ssid = None
+        config = load_wifi_config()
+        if config["fallback"]["auto_ap_enabled"] and get_wifi_mode() != "setup_ap":
+            _deactivate_sta(wlan)
+            start_setup_ap(verbose=verbose)
+        return wlan
 
     now = time.time()
     if now - _last_check < CHECK_INTERVAL:
@@ -619,7 +769,7 @@ def reset_wifi_config():
     except Exception:
         pass
 
-    start_setup_ap(verbose=True)
+    start_setup_ap(verbose=True, force=True)
     return get_wifi_config_summary()
 
 
@@ -633,7 +783,7 @@ def update_setup_ap_password(password):
     save_wifi_config(config)
 
     if get_wifi_mode() == "setup_ap":
-        start_setup_ap(verbose=False)
+        start_setup_ap(verbose=False, force=True)
 
     return get_wifi_config_summary()
 
@@ -643,7 +793,11 @@ def connect_to_known_network(ssid=None, verbose=True):
     if ssid:
         config["last_connected_ssid"] = ssid
         save_wifi_config(config)
-    return connect_wifi(do_scan=True, verbose=verbose, retries_per_network=1)
+    return connect_wifi(do_scan=False, verbose=verbose, retries_per_network=1)
+
+
+def build_setup_ap_ssid():
+    return _build_setup_ap_ssid()
 
 
 def get_setup_ap_credentials():
@@ -657,7 +811,7 @@ def sync_identity_settings(restart_ap=False):
     save_wifi_config(config)
 
     if restart_ap and get_wifi_mode() == "setup_ap":
-        start_setup_ap(verbose=False)
+        start_setup_ap(verbose=False, force=True)
 
     return get_wifi_config_summary()
 

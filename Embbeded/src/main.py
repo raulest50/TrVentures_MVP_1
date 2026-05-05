@@ -6,6 +6,7 @@ import machine
 import cloud_buffer
 from wifi import (
     add_or_update_network,
+    build_setup_ap_ssid,
     connect_to_known_network,
     connect_wifi,
     delete_network,
@@ -17,12 +18,21 @@ from wifi import (
     get_wifi_config_summary,
     get_wifi_info,
     get_wifi_mode,
+    is_setup_locked,
+    load_wifi_config,
     reset_wifi_config,
+    save_wifi_config,
     sync_identity_settings,
     test_wifi_credentials,
     update_setup_ap_password,
 )
-from sensor_scd41 import init_sensor, update_sensor, get_latest_readings, set_sample_interval
+from sensor_scd41 import (
+    init_sensor,
+    update_sensor,
+    get_latest_readings,
+    set_sample_interval,
+    sample_now,
+)
 from remote_questdb_service import update_service as update_questdb
 import timer_service
 import device_config
@@ -71,6 +81,104 @@ def get_device_identity():
         "last_local_ip": config.get("last_local_ip"),
         "last_local_ssid": config.get("last_local_ssid"),
         "operation_mode": config.get("operation_mode", "normal"),
+    }
+
+
+def get_operation_mode_payload():
+    return {
+        "operation_mode": device_config.get_operation_mode(),
+        "effective_view": "setup" if _should_serve_setup() else "normal",
+        "wifi_mode": get_wifi_mode(),
+        "last_test": get_last_test_result(),
+    }
+
+
+def get_setup_state():
+    return {
+        "wifi": get_wifi_info(wlan),
+        "wifi_config": get_wifi_config_summary(),
+        "identity": get_device_identity(),
+        "operation_mode": get_operation_mode_payload(),
+    }
+
+
+def _apply_setup_payload(body):
+    identity = body.get("identity", {})
+    if not isinstance(identity, dict):
+        raise ValueError("identity invalido")
+
+    board_name = str(identity.get("board_name", "")).strip()
+    if not board_name:
+        raise ValueError("board_name es obligatorio")
+
+    requested_mode = str(body.get("operation_mode", "normal")).strip().lower()
+    if requested_mode not in ("setup", "normal"):
+        raise ValueError("operation_mode invalido")
+
+    raw_networks = body.get("networks", [])
+    if not isinstance(raw_networks, list):
+        raise ValueError("networks invalido")
+
+    removed_ssids = body.get("removed_ssids", [])
+    if not isinstance(removed_ssids, list):
+        removed_ssids = []
+
+    current_wifi = load_wifi_config()
+    existing_map = {}
+    for entry in current_wifi.get("known_networks", []):
+        ssid = str(entry.get("ssid", "")).strip()
+        if ssid:
+            existing_map[ssid] = entry
+
+    removed_lookup = {}
+    for entry in removed_ssids:
+        ssid = str(entry or "").strip()
+        if ssid:
+            removed_lookup[ssid] = True
+
+    normalized_networks = []
+    seen_lookup = {}
+    for entry in raw_networks:
+        if not isinstance(entry, dict):
+            continue
+
+        ssid = str(entry.get("ssid", "")).strip()
+        if not ssid or ssid in removed_lookup or ssid in seen_lookup:
+            continue
+
+        password = entry.get("password")
+        if password is None or str(password) == "":
+            if ssid in existing_map:
+                password = str(existing_map[ssid].get("password", ""))
+            else:
+                raise ValueError("password es obligatorio para la red '{}'".format(ssid))
+
+        normalized_networks.append({
+            "ssid": ssid,
+            "password": str(password),
+            "priority": int(entry.get("priority", 10)),
+            "enabled": bool(entry.get("enabled", True)),
+        })
+        seen_lookup[ssid] = True
+
+    device_config.update_config({
+        "board_name": board_name,
+        "mdns_enabled": bool(identity.get("mdns_enabled", True)),
+        "operation_mode": requested_mode,
+    })
+
+    current_wifi["known_networks"] = normalized_networks
+    current_wifi["setup_ap"]["ssid"] = build_setup_ap_ssid()
+
+    last_connected_ssid = current_wifi.get("last_connected_ssid")
+    if last_connected_ssid and last_connected_ssid not in seen_lookup:
+        current_wifi["last_connected_ssid"] = None
+
+    save_wifi_config(current_wifi)
+    return {
+        "identity": get_device_identity(),
+        "wifi": get_wifi_config_summary(),
+        "operation_mode": get_operation_mode_payload(),
     }
 
 
@@ -202,7 +310,7 @@ def _log_wifi_endpoint():
     if mode == "sta" and ip:
         print("\nServidor web iniciado en http://{}".format(ip))
         if device_config.is_mdns_enabled():
-            print("Hostname local esperado: http://{}.local".format(device_config.get_mdns_hostname()))
+            print("URL mDNS: http://{}.local".format(device_config.get_mdns_hostname()))
         print("Modo de interfaz: {}\n".format(operation_mode))
         return
 
@@ -237,7 +345,7 @@ def _selected_html():
 
 
 print("Iniciando conectividad WiFi...")
-wlan = connect_wifi(do_scan=True, verbose=True)
+wlan = connect_wifi(do_scan=False, verbose=True)
 wifi_available = bool(wlan and wlan.isconnected())
 
 if not wifi_available:
@@ -297,7 +405,12 @@ from remote_questdb_service import set_send_interval
 set_send_interval(questdb_interval)
 
 
-init_sensor()
+if is_setup_locked():
+    print("Modo setup activo: el portal seguira estable aunque el sensor no este disponible.")
+else:
+    sensor_ok = init_sensor()
+    if not sensor_ok:
+        print("Continuando sin SCD41 operativo; revisa cableado/alimentacion del sensor.")
 
 
 addr = socket.getaddrinfo("0.0.0.0", 80)[0][-1]
@@ -307,7 +420,7 @@ try:
 except Exception:
     pass
 s.bind(addr)
-s.listen(2)
+s.listen(4)
 s.settimeout(0.3)
 
 _log_wifi_endpoint()
@@ -340,12 +453,55 @@ def handle_client(cl):
             send_response(cl, "HTTP/1.1 200 OK", _selected_html(), "text/html; charset=utf-8")
             return
 
+        if path.startswith("/setup/state"):
+            send_json(cl, "HTTP/1.1 200 OK", get_setup_state())
+            return
+
+        if path.startswith("/setup/apply"):
+            if method != "POST":
+                send_json(cl, "HTTP/1.1 405 Method Not Allowed", {"error": "method not allowed"})
+                return
+
+            try:
+                payload = _apply_setup_payload(body)
+                send_json(
+                    cl,
+                    "HTTP/1.1 200 OK",
+                    {
+                        "status": "ok",
+                        "message": "Configuracion aplicada. Reiniciando board...",
+                        "setup": payload,
+                    },
+                )
+                try:
+                    cl.close()
+                except Exception:
+                    pass
+                time.sleep(0.4)
+                machine.reset()
+            except ValueError as e:
+                send_json(cl, "HTTP/1.1 400 Bad Request", {"error": str(e)})
+            except Exception as e:
+                send_json(cl, "HTTP/1.1 500 Internal Server Error", {"error": str(e)})
+            return
+
         if path.startswith("/setup"):
             send_response(cl, "HTTP/1.1 200 OK", SETUP_HTML, "text/html; charset=utf-8")
             return
 
         if path.startswith("/data"):
             send_json(cl, "HTTP/1.1 200 OK", get_latest_readings())
+            return
+
+        if path.startswith("/sensor/sample-now"):
+            if method != "POST":
+                send_json(cl, "HTTP/1.1 405 Method Not Allowed", {"error": "method not allowed"})
+                return
+
+            try:
+                send_json(cl, "HTTP/1.1 200 OK", sample_now())
+            except Exception as e:
+                send_json(cl, "HTTP/1.1 500 Internal Server Error", {"success": False, "error": str(e)})
             return
 
         if path.startswith("/wifi/scan"):
@@ -463,16 +619,7 @@ def handle_client(cl):
 
         if path.startswith("/operation-mode"):
             if method == "GET":
-                send_json(
-                    cl,
-                    "HTTP/1.1 200 OK",
-                    {
-                        "operation_mode": device_config.get_operation_mode(),
-                        "effective_view": "setup" if _should_serve_setup() else "normal",
-                        "wifi_mode": get_wifi_mode(),
-                        "last_test": get_last_test_result(),
-                    },
-                )
+                send_json(cl, "HTTP/1.1 200 OK", get_operation_mode_payload())
                 return
 
             if method != "POST":
@@ -623,7 +770,7 @@ def handle_client(cl):
                     send_json(cl, "HTTP/1.1 400 Bad Request", {"error": "no identity fields provided"})
                     return
 
-                sync_identity_settings(restart_ap=True)
+                sync_identity_settings(restart_ap=False)
                 send_json(cl, "HTTP/1.1 200 OK", {"status": "ok", "identity": get_device_identity()})
             except Exception as e:
                 send_json(cl, "HTTP/1.1 500 Internal Server Error", {"error": str(e)})
@@ -647,8 +794,12 @@ def handle_client(cl):
 
                 if "sample_interval" in body:
                     new_sample_interval = int(body["sample_interval"])
-                    if new_sample_interval <= 0:
-                        send_json(cl, "HTTP/1.1 400 Bad Request", {"error": "sample_interval must be positive"})
+                    if new_sample_interval < 300:
+                        send_json(
+                            cl,
+                            "HTTP/1.1 400 Bad Request",
+                            {"error": "sample_interval must be at least 300 seconds"},
+                        )
                         return
                     set_sample_interval(new_sample_interval)
                     response_data["sample_interval"] = new_sample_interval
@@ -669,8 +820,14 @@ def handle_client(cl):
                     )
                     return
 
-                sample = response_data.get("sample_interval", device_config.get_sample_interval())
-                questdb_interval = response_data.get("questdb_interval", device_config.get_questdb_interval())
+                sample = response_data.get(
+                    "sample_interval",
+                    device_config.get_sample_interval(),
+                )
+                questdb_interval = response_data.get(
+                    "questdb_interval",
+                    device_config.get_questdb_interval(),
+                )
                 device_config.set_intervals(sample, questdb_interval)
                 send_json(cl, "HTTP/1.1 200 OK", response_data)
             except Exception as e:
@@ -692,37 +849,14 @@ print("=" * 60 + "\n")
 
 _wifi_reconnect_logs = 0
 _max_reconnect_log = 3
+WIFI_MAINTENANCE_INTERVAL = 2
+SENSOR_TICK_INTERVAL = 1
+BACKEND_TICK_INTERVAL = 1
+last_wifi_maintenance = 0
+last_sensor_tick = 0
+last_backend_tick = 0
 
 while True:
-    try:
-        previously_available = wifi_available
-        previous_mode = get_wifi_mode()
-        wlan = ensure_connected(wlan, verbose=False)
-        current_info = _refresh_wifi_state()
-
-        if wifi_available and not previously_available:
-            _wifi_reconnect_logs += 1
-            if _wifi_reconnect_logs <= _max_reconnect_log:
-                print("\nWiFi reconectado en modo STA: http://{}\n".format(current_info.get("ip", "--")))
-
-        if current_info.get("mode") == "setup_ap" and previous_mode != "setup_ap":
-            print("\nFallback a modo setup activo: http://{}\n".format(current_info.get("ip") or "192.168.4.1"))
-
-    except Exception as e:
-        if _wifi_reconnect_logs <= _max_reconnect_log:
-            print("Error manteniendo WiFi: {}".format(e))
-        wifi_available = False
-
-    try:
-        update_sensor()
-    except Exception as e:
-        print("Error actualizando sensor: {}".format(e))
-
-    try:
-        update_questdb()
-    except Exception as e:
-        print("Error procesando sincronizacion backend: {}".format(e))
-
     try:
         cl, client_addr = s.accept()
         print("Cliente: {}".format(client_addr))
@@ -731,3 +865,46 @@ while True:
         pass
     except Exception as e:
         print("Error manejando cliente HTTP: {}".format(e))
+
+    now = time.time()
+
+    if now - last_wifi_maintenance >= WIFI_MAINTENANCE_INTERVAL:
+        last_wifi_maintenance = now
+        try:
+            previously_available = wifi_available
+            previous_mode = get_wifi_mode()
+            wlan = ensure_connected(wlan, verbose=False)
+            current_info = _refresh_wifi_state()
+
+            if wifi_available and not previously_available:
+                _wifi_reconnect_logs += 1
+                if _wifi_reconnect_logs <= _max_reconnect_log:
+                    print("\nWiFi reconectado en modo STA: http://{}".format(current_info.get("ip", "--")))
+                    if device_config.is_mdns_enabled():
+                        print("URL mDNS: http://{}.local".format(device_config.get_mdns_hostname()))
+                    print("")
+
+            if current_info.get("mode") == "setup_ap" and previous_mode != "setup_ap":
+                print("\nFallback a modo setup activo: http://{}\n".format(current_info.get("ip") or "192.168.4.1"))
+
+        except Exception as e:
+            if _wifi_reconnect_logs <= _max_reconnect_log:
+                print("Error manteniendo WiFi: {}".format(e))
+            wifi_available = False
+
+    if is_setup_locked():
+        continue
+
+    if now - last_sensor_tick >= SENSOR_TICK_INTERVAL:
+        last_sensor_tick = now
+        try:
+            update_sensor()
+        except Exception as e:
+            print("Error actualizando sensor: {}".format(e))
+
+    if now - last_backend_tick >= BACKEND_TICK_INTERVAL:
+        last_backend_tick = now
+        try:
+            update_questdb()
+        except Exception as e:
+            print("Error procesando sincronizacion backend: {}".format(e))

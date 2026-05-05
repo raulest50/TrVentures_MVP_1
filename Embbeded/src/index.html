@@ -18,6 +18,7 @@
 
       h2 {
         margin-top: 0;
+        margin-bottom: 1.2rem;
         font-size: 0.95rem;
         font-weight: 400;
         color: #94a3b8;
@@ -129,6 +130,7 @@
         cursor: pointer;
         background: #fbbf24;
         color: #0f172a;
+        transition: opacity 0.2s ease;
       }
 
       .btn-secondary {
@@ -144,6 +146,14 @@
       .btn-danger {
         background: #b91c1c;
         color: #fee2e2;
+      }
+
+      .btn.loading {
+        opacity: 0.82;
+      }
+
+      .btn.loading::after {
+        content: " ...";
       }
 
       .btn:disabled {
@@ -244,6 +254,10 @@
         <p class="metric">Ultima lectura valida: <span id="last-ok" class="value">--</span></p>
         <p class="metric">Errores acumulados: <span id="errors" class="value">--</span></p>
         <p class="metric">Estado sensor: <span id="sensor-status" class="value status-warn">Esperando...</span></p>
+        <div class="btn-row">
+          <button id="sample-now-btn" class="btn">Tomar muestra ahora</button>
+        </div>
+        <div id="sensor-status-msg" class="status-message hidden"></div>
         <pre id="sensor-debug">{}</pre>
       </div>
 
@@ -252,8 +266,6 @@
         <div class="input-group">
           <label for="sensor-interval-input">Intervalo sensor</label>
           <select id="sensor-interval-input">
-            <option value="20">20 segundos</option>
-            <option value="60">1 minuto</option>
             <option value="300">5 minutos</option>
             <option value="600">10 minutos</option>
             <option value="1200">20 minutos</option>
@@ -263,8 +275,6 @@
         <div class="input-group">
           <label for="backend-interval-input">Intervalo backend</label>
           <select id="backend-interval-input">
-            <option value="20">20 segundos</option>
-            <option value="60">1 minuto</option>
             <option value="300">5 minutos</option>
             <option value="600">10 minutos</option>
             <option value="1200">20 minutos</option>
@@ -335,6 +345,7 @@
         <p class="metric">Hora UTC: <span id="time-utc" class="value">--</span></p>
         <p class="metric">Hora local: <span id="time-local" class="value">--</span></p>
         <p class="metric">Ultima sync: <span id="time-last-sync" class="value">--</span></p>
+        <p class="metric">Ultimo error NTP: <span id="time-last-error" class="value">--</span></p>
         <p class="metric">Offset UTC: <span id="time-offset" class="value">--</span></p>
       </div>
 
@@ -379,8 +390,13 @@
     </div>
 
     <script>
-      const POLL_MS = 8000;
-      let pollTimer = null;
+      const FAST_POLL_MS = 8000;
+      const SLOW_POLL_MS = 20000;
+      const CONFIG_POLL_MS = 30000;
+      let fastPollTimer = null;
+      let slowPollTimer = null;
+      let configPollTimer = null;
+      let redirectingToSetup = false;
 
       function byId(id) {
         return document.getElementById(id);
@@ -394,12 +410,6 @@
       function hideMessage(el) {
         el.className = "status-message hidden";
         el.textContent = "";
-      }
-
-      function fetchJson(url, options) {
-        return fetch(url, options).then(function (response) {
-          return response.json();
-        });
       }
 
       function setStatus(el, text, level) {
@@ -421,169 +431,70 @@
         return typeof decimals === "number" ? value.toFixed(decimals) : String(value);
       }
 
-      function formatTimestamp(value) {
-        return formatText(value, "--");
-      }
+      function fetchJson(url, options) {
+        return fetch(url, options).then(function (response) {
+          return response.text().then(function (text) {
+            let payload = {};
+            try {
+              payload = text ? JSON.parse(text) : {};
+            } catch (error) {
+              payload = {};
+            }
 
-      function updateWifi() {
-        return Promise.all([
-          fetchJson("/wifi"),
-          fetchJson("/operation-mode")
-        ]).then(function (results) {
-          const wifi = results[0] || {};
-          const modeData = results[1] || {};
-          const connected = !!wifi.connected;
-          setStatus(byId("wifi-status"), connected ? "Conectado" : (wifi.mode === "setup_ap" ? "Setup AP" : "Sin enlace"), connected ? "status-ok" : "status-warn");
-          byId("wifi-mode").textContent = formatText(wifi.mode);
-          byId("wifi-ssid").textContent = formatText(wifi.ssid);
-          byId("wifi-ip").textContent = formatText(wifi.ip);
-          byId("wifi-last-ssid").textContent = formatText(wifi.last_connected_ssid);
-          byId("wifi-quality").textContent = formatText(wifi.signal_quality);
-          byId("wifi-rssi").textContent = formatText(wifi.rssi);
-          byId("wifi-last-error").textContent = formatText(wifi.last_connection_error);
-          byId("operation-mode").textContent = formatText(modeData.operation_mode);
+            if (!response.ok) {
+              const message = payload.error || payload.message || ("HTTP " + response.status);
+              throw new Error(message);
+            }
 
-          if (modeData.effective_view === "setup") {
-            window.location.href = "/setup";
-          }
-        }).catch(function (err) {
-          setStatus(byId("wifi-status"), "Error", "status-error");
-          showMessage(byId("wifi-status-msg"), "No se pudo consultar el estado WiFi: " + String(err.message || err), false);
+            return payload;
+          });
         });
       }
 
-      function enterSetupMode() {
-        const button = byId("enter-setup-btn");
-        button.disabled = true;
-        fetchJson("/operation-mode", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ operation_mode: "setup" })
-        }).then(function () {
-          showMessage(byId("wifi-status-msg"), "Cambiando a modo setup...", true);
-          setTimeout(function () {
-            window.location.href = "/setup";
-          }, 500);
-        }).catch(function (err) {
-          showMessage(byId("wifi-status-msg"), "No se pudo entrar a setup: " + String(err.message || err), false);
-        }).finally(function () {
-          button.disabled = false;
-        });
-      }
-
-      function updateData() {
-        return fetchJson("/data").then(function (data) {
-          byId("co2").textContent = formatNumeric(data.co2);
-          byId("temp").textContent = formatNumeric(data.temp, 2);
-          byId("rh").textContent = formatNumeric(data.rh, 2);
-          byId("last-ok").textContent = formatText(data.last_ok_reading);
-          byId("errors").textContent = formatNumeric(data.error_count);
-          const statusText = data.valid ? "Lectura valida" : "Sin lectura valida";
-          setStatus(byId("sensor-status"), statusText, data.valid ? "status-ok" : "status-warn");
-          byId("sensor-debug").textContent = JSON.stringify(data, null, 2);
-        }).catch(function () {
-          setStatus(byId("sensor-status"), "Error", "status-error");
-        });
-      }
-
-      function updateIntervals() {
-        return fetchJson("/config").then(function (data) {
-          if (data.sample_interval) {
-            byId("sensor-interval-input").value = String(data.sample_interval);
-          }
-          if (data.questdb_interval) {
-            byId("backend-interval-input").value = String(data.questdb_interval);
-          }
-        });
-      }
-
-      function saveIntervals() {
-        const btn = byId("save-intervals-btn");
-        btn.disabled = true;
-        fetchJson("/config", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sample_interval: parseInt(byId("sensor-interval-input").value, 10),
-            questdb_interval: parseInt(byId("backend-interval-input").value, 10)
-          })
-        }).then(function (data) {
-          if (data.error) {
-            throw new Error(data.error);
-          }
-          showMessage(byId("interval-status"), "Intervalos guardados.", true);
-          updateQuestDB();
-        }).catch(function (err) {
-          showMessage(byId("interval-status"), "Error guardando intervalos: " + String(err.message || err), false);
-        }).finally(function () {
-          btn.disabled = false;
-        });
-      }
-
-      function updateDeviceConfig() {
-        return fetchJson("/device/config").then(function (data) {
-          byId("device-board-id").textContent = formatText(data.board_id);
-          byId("device-deployment-id").textContent = formatText(data.deployment_id);
-          byId("device-sensor-type").textContent = formatText(data.sensor_type);
-          byId("device-latitude-input").value = typeof data.latitude === "number" ? String(data.latitude) : "";
-          byId("device-longitude-input").value = typeof data.longitude === "number" ? String(data.longitude) : "";
-          byId("device-location-input").value = data.location_name || "";
-        });
-      }
-
-      function saveDeviceConfig() {
-        const latitude = parseFloat(byId("device-latitude-input").value);
-        const longitude = parseFloat(byId("device-longitude-input").value);
-        if (isNaN(latitude) || isNaN(longitude)) {
-          showMessage(byId("device-status"), "Latitud y longitud son obligatorias.", false);
-          return;
+      function setButtonLoading(button, loadingText) {
+        if (!button) {
+          return function () {};
         }
-
-        const btn = byId("save-device-btn");
-        btn.disabled = true;
-        fetchJson("/device/config", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            latitude: latitude,
-            longitude: longitude,
-            location_name: byId("device-location-input").value.trim()
-          })
-        }).then(function (data) {
-          if (data.error) {
-            throw new Error(data.error);
-          }
-          showMessage(byId("device-status"), "Deployment creado: " + data.deployment_id, true);
-          updateDeviceConfig();
-        }).catch(function (err) {
-          showMessage(byId("device-status"), "Error creando deployment: " + String(err.message || err), false);
-        }).finally(function () {
-          btn.disabled = false;
-        });
+        const originalText = button.textContent;
+        button.disabled = true;
+        button.classList.add("loading");
+        if (loadingText) {
+          button.textContent = loadingText;
+        }
+        return function restore() {
+          button.disabled = false;
+          button.classList.remove("loading");
+          button.textContent = originalText;
+        };
       }
 
-      function updateQuestDB() {
-        return fetchJson("/questdb").then(function (data) {
-          const enabled = !!data.enabled;
-          setStatus(byId("backend-status"), enabled ? "Activo" : "Inactivo", enabled ? "status-ok" : "status-warn");
-          const sent = typeof data.send_count === "number" ? data.send_count : 0;
-          const errors = typeof data.error_count === "number" ? data.error_count : 0;
-          const total = sent + errors;
-          byId("backend-sent").textContent = String(sent);
-          byId("backend-errors").textContent = String(errors);
-          byId("backend-last-send").textContent = formatText(data.last_send);
-          byId("backend-interval").textContent = formatText(data.send_interval);
-          byId("backend-table").textContent = formatText(data.table_name);
-          if (total > 0) {
-            const rate = (sent / total) * 100;
-            setStatus(byId("backend-success"), rate.toFixed(1) + "%", rate >= 95 ? "status-ok" : (rate >= 80 ? "status-warn" : "status-error"));
-          } else {
-            byId("backend-success").textContent = "--";
-            byId("backend-success").className = "value";
-          }
-        }).catch(function () {
-          setStatus(byId("backend-status"), "Error", "status-error");
-        });
+      function withButtonLoading(buttonId, loadingText, work) {
+        const restore = setButtonLoading(byId(buttonId), loadingText);
+        return Promise.resolve()
+          .then(work)
+          .finally(restore);
+      }
+
+      function stopPolling() {
+        if (fastPollTimer) {
+          clearInterval(fastPollTimer);
+          fastPollTimer = null;
+        }
+        if (slowPollTimer) {
+          clearInterval(slowPollTimer);
+          slowPollTimer = null;
+        }
+        if (configPollTimer) {
+          clearInterval(configPollTimer);
+          configPollTimer = null;
+        }
+      }
+
+      function startPolling() {
+        stopPolling();
+        fastPollTimer = setInterval(refreshFast, FAST_POLL_MS);
+        slowPollTimer = setInterval(refreshSlow, SLOW_POLL_MS);
+        configPollTimer = setInterval(refreshConfig, CONFIG_POLL_MS);
       }
 
       function renderPendingSamples(samples) {
@@ -592,6 +503,7 @@
           body.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#94a3b8;">Sin backlog local</td></tr>';
           return;
         }
+
         let rows = "";
         for (let i = 0; i < samples.length; i += 1) {
           const sample = samples[i];
@@ -606,126 +518,399 @@
         body.innerHTML = rows;
       }
 
-      function updateCloud() {
-        return fetchJson("/cloud").then(function (data) {
-          const enabled = !!data.cloud_upload_enabled;
-          setStatus(byId("cloud-enabled"), enabled ? "Habilitada" : "Deshabilitada", enabled ? "status-ok" : "status-warn");
-          byId("cloud-pending-count").textContent = String(data.pending_sample_count || 0);
-          byId("zero-co2").textContent = String(data.zero_co2_count || 0);
-          byId("zero-temp").textContent = String(data.zero_temp_count || 0);
-          byId("zero-rh").textContent = String(data.zero_rh_count || 0);
-          byId("error-samples").textContent = String(data.error_sample_count || 0);
-          renderPendingSamples(data.pending_samples || []);
-        }).catch(function () {
-          setStatus(byId("cloud-enabled"), "Error", "status-error");
+      function updateWifi(options) {
+        const silent = options && options.silent;
+        return fetchJson("/wifi")
+          .then(function (wifi) {
+            return fetchJson("/operation-mode").then(function (modeData) {
+              const connected = !!wifi.connected;
+              setStatus(
+                byId("wifi-status"),
+                connected ? "Conectado" : (wifi.mode === "setup_ap" ? "Setup AP" : "Sin enlace"),
+                connected ? "status-ok" : "status-warn"
+              );
+              byId("wifi-mode").textContent = formatText(wifi.mode);
+              byId("wifi-ssid").textContent = formatText(wifi.ssid);
+              byId("wifi-ip").textContent = formatText(wifi.ip);
+              byId("wifi-last-ssid").textContent = formatText(wifi.last_connected_ssid);
+              byId("wifi-quality").textContent = formatText(wifi.signal_quality);
+              byId("wifi-rssi").textContent = formatText(wifi.rssi);
+              byId("wifi-last-error").textContent = formatText(wifi.last_connection_error);
+              byId("operation-mode").textContent = formatText(modeData.operation_mode);
+
+              if (modeData.effective_view === "setup" && !redirectingToSetup) {
+                redirectingToSetup = true;
+                stopPolling();
+                window.location.href = "/setup";
+              }
+            });
+          })
+          .catch(function (err) {
+            setStatus(byId("wifi-status"), "Error", "status-error");
+            if (!silent) {
+              showMessage(
+                byId("wifi-status-msg"),
+                "No se pudo consultar el estado WiFi: " + String(err.message || err),
+                false
+              );
+            }
+          });
+      }
+
+      function enterSetupMode() {
+        return withButtonLoading("enter-setup-btn", "Abriendo setup", function () {
+          return fetchJson("/operation-mode", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ operation_mode: "setup" })
+          }).then(function () {
+            showMessage(byId("wifi-status-msg"), "Cambiando a modo setup...", true);
+            redirectingToSetup = true;
+            stopPolling();
+            setTimeout(function () {
+              window.location.href = "/setup";
+            }, 500);
+          }).catch(function (err) {
+            showMessage(
+              byId("wifi-status-msg"),
+              "No se pudo entrar a setup: " + String(err.message || err),
+              false
+            );
+          });
         });
       }
 
+      function updateData() {
+        return fetchJson("/data")
+          .then(function (data) {
+            byId("co2").textContent = formatNumeric(data.co2);
+            byId("temp").textContent = formatNumeric(data.temp, 2);
+            byId("rh").textContent = formatNumeric(data.rh, 2);
+            byId("last-ok").textContent = formatText(data.last_ok_reading);
+            byId("errors").textContent = formatNumeric(data.error_count);
+
+            let statusText = "Sin lectura valida";
+            let statusLevel = "status-warn";
+            if (data.valid) {
+              statusText = "Lectura valida";
+              statusLevel = "status-ok";
+            } else if (data.last_status === "error") {
+              statusText = "Error de lectura";
+              statusLevel = "status-error";
+            } else if (data.last_status === "waiting_data") {
+              statusText = "Esperando datos del sensor";
+            }
+
+            setStatus(byId("sensor-status"), statusText, statusLevel);
+            byId("sensor-debug").textContent = JSON.stringify(data, null, 2);
+          })
+          .catch(function () {
+            setStatus(byId("sensor-status"), "Error", "status-error");
+          });
+      }
+
+      function takeManualSample() {
+        hideMessage(byId("sensor-status-msg"));
+        return withButtonLoading("sample-now-btn", "Tomando muestra", function () {
+          return fetchJson("/sensor/sample-now", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" }
+          }).then(function (result) {
+            if (result.error) {
+              throw new Error(result.error);
+            }
+            if (result.readings) {
+              byId("sensor-debug").textContent = JSON.stringify(result.readings, null, 2);
+            }
+            return updateData().then(function () {
+              showMessage(
+                byId("sensor-status-msg"),
+                result.message || (result.success ? "Muestra manual completada." : "Sin datos listos por ahora."),
+                !!result.success
+              );
+            });
+          }).catch(function (err) {
+            showMessage(
+              byId("sensor-status-msg"),
+              "No se pudo tomar la muestra manual: " + String(err.message || err),
+              false
+            );
+          });
+        });
+      }
+
+      function updateIntervals() {
+        return fetchJson("/config")
+          .then(function (data) {
+            if (data.sample_interval) {
+              byId("sensor-interval-input").value = String(data.sample_interval);
+            }
+            if (data.questdb_interval) {
+              byId("backend-interval-input").value = String(data.questdb_interval);
+            }
+          })
+          .catch(function () {});
+      }
+
+      function saveIntervals() {
+        hideMessage(byId("interval-status"));
+        return withButtonLoading("save-intervals-btn", "Guardando", function () {
+          return fetchJson("/config", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sample_interval: parseInt(byId("sensor-interval-input").value, 10),
+              questdb_interval: parseInt(byId("backend-interval-input").value, 10)
+            })
+          }).then(function () {
+            showMessage(byId("interval-status"), "Intervalos guardados.", true);
+            return refreshConfig();
+          }).catch(function (err) {
+            showMessage(
+              byId("interval-status"),
+              "Error guardando intervalos: " + String(err.message || err),
+              false
+            );
+          });
+        });
+      }
+
+      function updateDeviceConfig() {
+        return fetchJson("/device/config")
+          .then(function (data) {
+            byId("device-board-id").textContent = formatText(data.board_id);
+            byId("device-deployment-id").textContent = formatText(data.deployment_id);
+            byId("device-sensor-type").textContent = formatText(data.sensor_type);
+            byId("device-latitude-input").value = typeof data.latitude === "number" ? String(data.latitude) : "";
+            byId("device-longitude-input").value = typeof data.longitude === "number" ? String(data.longitude) : "";
+            byId("device-location-input").value = data.location_name || "";
+          })
+          .catch(function () {});
+      }
+
+      function saveDeviceConfig() {
+        const latitude = parseFloat(byId("device-latitude-input").value);
+        const longitude = parseFloat(byId("device-longitude-input").value);
+        if (isNaN(latitude) || isNaN(longitude)) {
+          showMessage(byId("device-status"), "Latitud y longitud son obligatorias.", false);
+          return Promise.resolve();
+        }
+
+        hideMessage(byId("device-status"));
+        return withButtonLoading("save-device-btn", "Creando deployment", function () {
+          return fetchJson("/device/config", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              latitude: latitude,
+              longitude: longitude,
+              location_name: byId("device-location-input").value.trim()
+            })
+          }).then(function (data) {
+            showMessage(byId("device-status"), "Deployment creado: " + data.deployment_id, true);
+            return updateDeviceConfig();
+          }).catch(function (err) {
+            showMessage(
+              byId("device-status"),
+              "Error creando deployment: " + String(err.message || err),
+              false
+            );
+          });
+        });
+      }
+
+      function updateQuestDB() {
+        return fetchJson("/questdb")
+          .then(function (data) {
+            const enabled = !!data.enabled;
+            setStatus(byId("backend-status"), enabled ? "Activo" : "Inactivo", enabled ? "status-ok" : "status-warn");
+            const sent = typeof data.send_count === "number" ? data.send_count : 0;
+            const errors = typeof data.error_count === "number" ? data.error_count : 0;
+            const total = sent + errors;
+            byId("backend-sent").textContent = String(sent);
+            byId("backend-errors").textContent = String(errors);
+            byId("backend-last-send").textContent = formatText(data.last_send);
+            byId("backend-interval").textContent = formatText(data.send_interval);
+            byId("backend-table").textContent = formatText(data.table_name);
+
+            if (total > 0) {
+              const rate = (sent / total) * 100;
+              setStatus(
+                byId("backend-success"),
+                rate.toFixed(1) + "%",
+                rate >= 95 ? "status-ok" : (rate >= 80 ? "status-warn" : "status-error")
+              );
+            } else {
+              byId("backend-success").textContent = "--";
+              byId("backend-success").className = "value";
+            }
+          })
+          .catch(function () {
+            setStatus(byId("backend-status"), "Error", "status-error");
+          });
+      }
+
+      function updateCloud() {
+        return fetchJson("/cloud")
+          .then(function (data) {
+            const enabled = !!data.cloud_upload_enabled;
+            setStatus(
+              byId("cloud-enabled"),
+              enabled ? "Habilitada" : "Deshabilitada",
+              enabled ? "status-ok" : "status-warn"
+            );
+            byId("cloud-pending-count").textContent = String(data.pending_sample_count || 0);
+            byId("zero-co2").textContent = String(data.zero_co2_count || 0);
+            byId("zero-temp").textContent = String(data.zero_temp_count || 0);
+            byId("zero-rh").textContent = String(data.zero_rh_count || 0);
+            byId("error-samples").textContent = String(data.error_sample_count || 0);
+            renderPendingSamples(data.pending_samples || []);
+          })
+          .catch(function () {
+            setStatus(byId("cloud-enabled"), "Error", "status-error");
+          });
+      }
+
       function setCloud(enabled) {
-        const btn = enabled ? byId("enable-cloud-btn") : byId("disable-cloud-btn");
-        btn.disabled = true;
-        fetchJson("/cloud/config", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cloud_upload_enabled: enabled })
-        }).then(function (data) {
-          if (data.error) {
-            throw new Error(data.error);
-          }
-          showMessage(byId("cloud-status-msg"), enabled ? "Subida a la nube habilitada." : "Subida a la nube deshabilitada.", true);
-          updateCloud();
-          updateQuestDB();
-        }).catch(function (err) {
-          showMessage(byId("cloud-status-msg"), "Error actualizando nube: " + String(err.message || err), false);
-        }).finally(function () {
-          btn.disabled = false;
+        const buttonId = enabled ? "enable-cloud-btn" : "disable-cloud-btn";
+        hideMessage(byId("cloud-status-msg"));
+        return withButtonLoading(buttonId, enabled ? "Habilitando" : "Deshabilitando", function () {
+          return fetchJson("/cloud/config", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ cloud_upload_enabled: enabled })
+          }).then(function () {
+            showMessage(
+              byId("cloud-status-msg"),
+              enabled ? "Subida a la nube habilitada." : "Subida a la nube deshabilitada.",
+              true
+            );
+            return refreshFast();
+          }).catch(function (err) {
+            showMessage(
+              byId("cloud-status-msg"),
+              "Error actualizando nube: " + String(err.message || err),
+              false
+            );
+          });
         });
       }
 
       function clearCloud() {
-        const btn = byId("clear-cloud-btn");
-        btn.disabled = true;
-        fetchJson("/cloud/pending/clear", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" }
-        }).then(function (data) {
-          if (data.error) {
-            throw new Error(data.error);
-          }
-          showMessage(byId("cloud-status-msg"), "Backlog local limpiado.", true);
-          updateCloud();
-        }).catch(function (err) {
-          showMessage(byId("cloud-status-msg"), "Error limpiando backlog: " + String(err.message || err), false);
-        }).finally(function () {
-          btn.disabled = false;
+        hideMessage(byId("cloud-status-msg"));
+        return withButtonLoading("clear-cloud-btn", "Limpiando", function () {
+          return fetchJson("/cloud/pending/clear", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" }
+          }).then(function () {
+            showMessage(byId("cloud-status-msg"), "Backlog local limpiado.", true);
+            return updateCloud();
+          }).catch(function (err) {
+            showMessage(
+              byId("cloud-status-msg"),
+              "Error limpiando backlog: " + String(err.message || err),
+              false
+            );
+          });
         });
+      }
+
+      function formatOffset(seconds) {
+        if (typeof seconds !== "number" || isNaN(seconds)) {
+          return "--";
+        }
+        const hours = seconds / 3600;
+        if (hours === 0) {
+          return "UTC+0";
+        }
+        return "UTC" + (hours > 0 ? "+" : "") + String(hours);
       }
 
       function updateTime() {
-        return fetchJson("/time").then(function (data) {
-          setStatus(byId("time-status"), data.ntp_synced ? "Sincronizado" : "Pendiente", data.ntp_synced ? "status-ok" : "status-warn");
-          byId("time-utc").textContent = formatText(data.utc_iso);
-          byId("time-local").textContent = formatText(data.local_iso);
-          byId("time-last-sync").textContent = formatText(data.last_sync_iso);
-          byId("time-offset").textContent = formatText(data.utc_offset_hours);
-        });
+        return fetchJson("/time")
+          .then(function (data) {
+            const timeValid = !!data.time_valid;
+            setStatus(
+              byId("time-status"),
+              timeValid ? "Sincronizado" : "Pendiente",
+              timeValid ? "status-ok" : "status-warn"
+            );
+            byId("time-utc").textContent = formatText(data.iso_utc);
+            byId("time-local").textContent = formatText(data.iso_local);
+            byId("time-last-sync").textContent = formatText(data.last_ntp_sync);
+            byId("time-last-error").textContent = formatText(data.last_ntp_error);
+            byId("time-offset").textContent = formatOffset(data.utc_offset_seconds);
+          })
+          .catch(function () {
+            setStatus(byId("time-status"), "Error", "status-error");
+            byId("time-last-error").textContent = "Sin respuesta";
+          });
       }
 
       function updateLogger() {
-        return fetchJson("/logger").then(function (data) {
-          const logs = data && data.errors ? data.errors : [];
-          byId("logger-count").textContent = String(logs.length);
-          const body = byId("logger-table-body");
-          if (!logs.length) {
-            body.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#94a3b8;">Sin errores registrados</td></tr>';
-            return;
-          }
+        return fetchJson("/logger")
+          .then(function (data) {
+            const logs = data && data.errors ? data.errors : [];
+            byId("logger-count").textContent = String(logs.length);
+            const body = byId("logger-table-body");
+            if (!logs.length) {
+              body.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#94a3b8;">Sin errores registrados</td></tr>';
+              return;
+            }
 
-          let rows = "";
-          for (let i = 0; i < logs.length; i += 1) {
-            const log = logs[i];
-            rows += "<tr>";
-            rows += "<td>" + formatText(log.timestamp) + "</td>";
-            rows += '<td class="mono">' + formatText(log.module) + "</td>";
-            rows += "<td>" + formatText(log.message) + "</td>";
-            rows += "</tr>";
-          }
-          body.innerHTML = rows;
-        }).catch(function () {
-          byId("logger-table-body").innerHTML = '<tr><td colspan="3" style="text-align:center; color:#f87171;">Error de comunicacion</td></tr>';
-        });
+            let rows = "";
+            for (let i = 0; i < logs.length; i += 1) {
+              const log = logs[i];
+              rows += "<tr>";
+              rows += "<td>" + formatText(log.timestamp) + "</td>";
+              rows += '<td class="mono">' + formatText(log.module) + "</td>";
+              rows += "<td>" + formatText(log.message) + "</td>";
+              rows += "</tr>";
+            }
+            body.innerHTML = rows;
+          })
+          .catch(function () {
+            byId("logger-table-body").innerHTML = '<tr><td colspan="3" style="text-align:center; color:#f87171;">Error de comunicacion</td></tr>';
+          });
       }
 
-      function refreshAll() {
+      async function refreshFast() {
+        await updateWifi({ silent: true });
+        await updateData();
+        await updateCloud();
+        await updateQuestDB();
+      }
+
+      async function refreshSlow() {
+        await updateTime();
+        await updateLogger();
+      }
+
+      async function refreshConfig() {
+        await updateIntervals();
+        await updateDeviceConfig();
+      }
+
+      async function refreshInitial() {
         hideMessage(byId("wifi-status-msg"));
-        Promise.all([
-          updateWifi(),
-          updateData(),
-          updateIntervals(),
-          updateDeviceConfig(),
-          updateQuestDB(),
-          updateCloud(),
-          updateTime(),
-          updateLogger()
-        ]).catch(function () {});
+        await refreshFast();
+        await refreshConfig();
+        await refreshSlow();
       }
 
-      function startPolling() {
-        if (pollTimer) {
-          clearInterval(pollTimer);
-        }
-        pollTimer = setInterval(refreshAll, POLL_MS);
-      }
-
-      byId("reload-wifi-btn").addEventListener("click", updateWifi);
+      byId("reload-wifi-btn").addEventListener("click", function () {
+        hideMessage(byId("wifi-status-msg"));
+        updateWifi({ silent: false });
+      });
       byId("enter-setup-btn").addEventListener("click", enterSetupMode);
+      byId("sample-now-btn").addEventListener("click", takeManualSample);
       byId("save-intervals-btn").addEventListener("click", saveIntervals);
       byId("save-device-btn").addEventListener("click", saveDeviceConfig);
       byId("enable-cloud-btn").addEventListener("click", function () { setCloud(true); });
       byId("disable-cloud-btn").addEventListener("click", function () { setCloud(false); });
       byId("clear-cloud-btn").addEventListener("click", clearCloud);
 
-      refreshAll();
+      refreshInitial().catch(function () {});
       startPolling();
     </script>
   </body>
